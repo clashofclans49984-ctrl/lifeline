@@ -221,7 +221,16 @@
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxRbjWV8hzAWdaLnqeNbMYirA3vXkHFbs&callback=initDriverMap"></script>
+  <script src="/shared/config.js"></script>
+  <script>
+    // Dynamically load Google Maps using the config key
+    (function() {
+      const s = document.createElement('script');
+      s.src = `https://maps.googleapis.com/maps/api/js?key=${window.LIFELINE_CONFIG.googleMapsApiKey}&callback=initDriverMap`;
+      s.async = true; s.defer = true;
+      document.head.appendChild(s);
+    })();
+  </script>
   <script src="/shared/toast.js"></script>
   <script>
     const token = localStorage.getItem('token');

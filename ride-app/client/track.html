@@ -145,6 +145,7 @@
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/shared/config.js"></script>
   <script src="/shared/toast.js"></script>
   <script>
     const token = localStorage.getItem('token');
@@ -160,7 +161,7 @@
       mapView.style.display = 'flex';
       
       const script = document.createElement('script');
-      script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyDxRbjWV8hzAWdaLnqeNbMYirA3vXkHFbs&callback=initMap";
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${window.LIFELINE_CONFIG.googleMapsApiKey}&callback=initMap`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
