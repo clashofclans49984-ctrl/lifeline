@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RideNow — Verification Panel</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --blue: #378ADD; --green: #1D9E75; --red: #e74c3c;
+      --amber: #f39c12; --dark: #1a1a2e; --darker: #0f0f23;
+      --gray-50: #f4f5f7; --gray-100: #f8f9fa; --gray-200: #e9ecef;
+      --gray-400: #ced4da; --gray-600: #6c757d; --gray-800: #343a40;
+      --white: #ffffff; --radius: 12px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--darker); color: var(--white); min-height: 100vh; }
+
+    .page-header {
+      padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .page-title { font-size: 1.3rem; font-weight: 800; }
+    .page-title span:first-child { color: var(--blue); }
+    .page-title span:last-child { color: var(--green); }
+    .page-subtitle { color: var(--gray-400); font-size: 0.85rem; }
+    .back-link { color: var(--gray-400); text-decoration: none; font-size: 0.85rem; }
+    .back-link:hover { color: var(--white); }
+
+    .panels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 16px; height: calc(100vh - 60px); }
+
+    .panel {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-header {
+      padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;
+    }
+    .panel-header.driver { color: var(--green); }
+    .panel-header.user { color: var(--blue); }
+    .panel-header.log { color: var(--amber); }
+
+    .panel-body { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+    .input-row { display: flex; gap: 8px; }
+    .input-row input {
+      flex: 1; padding: 10px 12px; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+      color: var(--white); font-size: 0.85rem;
+    }
+    .input-row input::placeholder { color: var(--gray-600); }
+    .input-row input:focus { outline: none; border-color: var(--blue); }
+
+    .btn {
+      padding: 10px 16px; border: none; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-green { background: var(--green); color: var(--white); }
+    .btn-green:hover { background: #178a65; }
+    .btn-blue { background: var(--blue); color: var(--white); }
+    .btn-blue:hover { background: #2a6db5; }
+    .btn-red { background: rgba(231,76,60,0.15); color: var(--red); border: 1px solid rgba(231,76,60,0.2); }
+    .btn-red:hover { background: rgba(231,76,60,0.25); }
+    .btn-amber { background: var(--amber); color: var(--white); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .mini-map { width: 100%; height: 180px; border-radius: 8px; overflow: hidden; }
+
+    .status-badge {
+      display: inline-block; padding: 4px 10px; border-radius: 20px;
+      font-size: 0.78rem; font-weight: 600;
+    }
+    .status-badge.online { background: rgba(29,158,117,0.15); color: var(--green); }
+    .status-badge.offline { background: rgba(255,255,255,0.06); color: var(--gray-400); }
+    .status-badge.pending { background: rgba(243,156,18,0.15); color: var(--amber); }
+    .status-badge.accepted { background: rgba(29,158,117,0.15); color: var(--green); }
+
+    .info-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px; padding: 12px; font-size: 0.85rem;
+    }
+    .info-card .label { color: var(--gray-600); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-card .value { font-weight: 600; margin-top: 2px; }
+
+    .notification-box {
+      display: none; background: rgba(243,156,18,0.08); border: 1px solid rgba(243,156,18,0.2);
+      border-radius: 8px; padding: 12px;
+    }
+    .notification-box.show { display: block; animation: pulse 0.3s ease; }
+    @keyframes pulse { 0% { transform: scale(0.97); } 50% { transform: scale(1.01); } 100% { transform: scale(1); } }
+
+    /* Log */
+    .log-area {
+      flex: 1; overflow-y: auto; font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 0.78rem; line-height: 1.6; padding: 8px;
+      background: rgba(0,0,0,0.3); border-radius: 8px;
+    }
+    .log-entry { padding: 2px 0; }
+    .log-entry.success { color: var(--green); }
+    .log-entry.pending { color: var(--amber); }
+    .log-entry.error { color: var(--red); }
+    .log-entry.info { color: var(--gray-400); }
+
+    .clear-log { width: 100%; margin-top: 8px; }
+
+    /* Criteria */
+    .criteria {
+      padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.02);
+    }
+    .criteria h3 { font-size: 0.9rem; color: var(--amber); margin-bottom: 10px; }
+    .criteria-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
+    .criteria-item {
+      font-size: 0.82rem; color: var(--gray-400); display: flex; align-items: center; gap: 8px;
+    }
+    .criteria-check { width: 18px; height: 18px; border: 2px solid var(--gray-600); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all 0.3s; flex-shrink: 0; }
+    .criteria-check.pass { background: var(--green); border-color: var(--green); color: var(--white); }
+
+    @media (max-width: 900px) {
+      .panels { grid-template-columns: 1fr; height: auto; }
+      .panel { min-height: 400px; }
+      .criteria-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div>
+      <div class="page-title"><span>Ride</span><span>Now</span> — Verification Panel</div>
+      <div class="page-subtitle">Simulate the full ride-booking flow without real devices</div>
+    </div>
+    <a href="/" class="back-link">← Back to App</a>
+  </div>
+
+  <div class="panels">
+    <!-- ─── Panel 1: Driver ──────────────────────── -->
+    <div class="panel">
+      <div class="panel-header driver">🚗 Simulate Driver <span class="status-badge offline" id="driverStatus">Offline</span></div>
+      <div class="panel-body">
+        <div class="input-row">
+          <input type="text" id="driverNameInput" placeholder="Driver name" value="Test Driver">
+          <input type="email" id="driverEmailInput" placeholder="Email" value="driver@test.com">
+        </div>
+        <div class="input-row">
+          <input type="password" id="driverPassInput" placeholder="Password" value="test123">
+        </div>
+        <div class="input-row">
+          <button class="btn btn-green" id="driverRegisterBtn">Register</button>
+          <button class="btn btn-green" id="driverLoginBtn">Login</button>
+          <button class="btn btn-green" id="driverGoOnlineBtn" disabled>Go Online</button>
+        </div>
+
+        <div id="driverMapContainer" class="mini-map"></div>
+
+        <div class="notification-box" id="driverNotification">
+          <div style="font-weight:700;color:var(--amber);margin-bottom:6px;">🔔 New Booking!</div>
+          <div style="font-size:0.82rem;color:var(--gray-400);margin-bottom:8px;" id="notifDetails">—</div>
+          <div class="input-row">
+            <button class="btn btn-green" id="driverAcceptBtn">✓ Accept</button>
+            <button class="btn btn-red" id="driverDeclineBtn">✗ Decline</button>
+          </div>
+        </div>
+
+        <div class="info-card" id="driverActiveRide" style="display:none;">
+          <div class="label">Active Ride</div>
+          <div class="value" id="driverRideInfo">—</div>
+          <button class="btn btn-green" id="driverCompleteBtn" style="margin-top:8px;width:100%;">Complete Ride</button>
+        </div>
+
+        <div class="info-card">
+          <div class="label">Driver Status Log</div>
+          <div id="driverLog" style="font-size:0.78rem;color:var(--gray-400);margin-top:4px;max-height:100px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Panel 2: User ────────────────────────── -->
+    <div class="panel">
+      <div class="panel-header user">🧑 Simulate User <span class="status-badge offline" id="userStatus">Idle</span></div>
+      <div class="panel-body">
+        <div class="input-row">
+          <input type="text" id="userNameInput" placeholder="User name" value="Test User">
+          <input type="email" id="userEmailInput" placeholder="Email" value="user@test.com">
+        </div>
+        <div class="input-row">
+          <input type="password" id="userPassInput" placeholder="Password" value="test123">
+        </div>
+        <div class="input-row">
+          <button class="btn btn-blue" id="userRegisterBtn">Register</button>
+          <button class="btn btn-blue" id="userLoginBtn">Login</button>
+          <button class="btn btn-blue" id="userRequestBtn" disabled>Request Ride</button>
+        </div>
+
+        <div id="userMapContainer" class="mini-map"></div>
+
+        <div class="info-card" id="userDriverCard" style="display:none;">
+          <div class="label">Driver Info</div>
+          <div class="value" id="userDriverInfo">—</div>
+        </div>
+
+        <div class="info-card">
+          <div class="label">User Status Log</div>
+          <div id="userLog" style="font-size:0.78rem;color:var(--gray-400);margin-top:4px;max-height:100px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Panel 3: Log ─────────────────────────── -->
+    <div class="panel">
+      <div class="panel-header log">📋 System Log</div>
+      <div class="panel-body">
+        <div class="log-area" id="systemLog"></div>
+        <button class="btn btn-amber clear-log" id="clearLogBtn">Clear Log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Criteria -->
+  <div class="criteria">
+    <h3>✅ Success Criteria</h3>
+    <div class="criteria-list">
+      <div class="criteria-item"><div class="criteria-check" id="c1"></div> Driver goes online — location on map</div>
+      <div class="criteria-item"><div class="criteria-check" id="c2"></div> User requests ride — "Finding drivers..."</div>
+      <div class="criteria-item"><div class="criteria-check" id="c3"></div> Driver receives notification within 2s</div>
+      <div class="criteria-item"><div class="criteria-check" id="c4"></div> Driver accepts — user sees "Driver accepted"</div>
+      <div class="criteria-item"><div class="criteria-check" id="c5"></div> Driver pin appears on user map</div>
+      <div class="criteria-item"><div class="criteria-check" id="c6"></div> Driver location updates every 5s</div>
+      <div class="criteria-item"><div class="criteria-check" id="c7"></div> Route line drawn between driver and user</div>
+      <div class="criteria-item"><div class="criteria-check" id="c8"></div> All socket events logged in System Log</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // ─── State ──────────────────────────────────────
+    let driverToken = null, driverData = null, driverSocket = null;
+    let userToken = null, userData = null, userSocket = null;
+    let driverOnline = false, driverSimInterval = null;
+    let activeBookingId = null, pendingBookingData = null;
+    let driverLat = 28.6200, driverLng = 77.2150;
+    const userLat = 28.6139, userLng = 77.2090;
+
+    // ─── Maps ───────────────────────────────────────
+    const driverMap = L.map('driverMapContainer').setView([driverLat, driverLng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(driverMap);
+
+    const userMap = L.map('userMapContainer').setView([userLat, userLng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(userMap);
+
+    const greenIcon = L.divIcon({
+      className: '', iconSize: [28, 28], iconAnchor: [14, 14],
+      html: '<div style="width:28px;height:28px;background:#1D9E75;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;">🚗</div>'
+    });
+    const blueIcon = L.divIcon({
+      className: '', iconSize: [28, 28], iconAnchor: [14, 14],
+      html: '<div style="width:28px;height:28px;background:#378ADD;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;">🧑</div>'
+    });
+
+    let driverMarker = L.marker([driverLat, driverLng], { icon: greenIcon }).addTo(driverMap);
+    let userMarker = L.marker([userLat, userLng], { icon: blueIcon }).addTo(userMap);
+    let driverOnUserMap = null, routeLine = null;
+
+    // ─── Logging ────────────────────────────────────
+    function sysLog(msg, type = 'info') {
+      const now = new Date();
+      const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+      const el = document.getElementById('systemLog');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${ts}] ${msg}`;
+      el.appendChild(entry);
+      el.scrollTop = el.scrollHeight;
+      criteriaCheck('c8');
+    }
+    function driverLog(msg) {
+      const el = document.getElementById('driverLog');
+      el.innerHTML += `<div>${msg}</div>`;
+      el.scrollTop = el.scrollHeight;
+    }
+    function userLog(msg) {
+      const el = document.getElementById('userLog');
+      el.innerHTML += `<div>${msg}</div>`;
+      el.scrollTop = el.scrollHeight;
+    }
+    document.getElementById('clearLogBtn').addEventListener('click', () => {
+      document.getElementById('systemLog').innerHTML = '';
+    });
+
+    // ─── Criteria ───────────────────────────────────
+    function criteriaCheck(id) {
+      const el = document.getElementById(id);
+      if (el && !el.classList.contains('pass')) {
+        el.classList.add('pass');
+        el.textContent = '✓';
+      }
+    }
+
+    // ─── Driver Auth ────────────────────────────────
+    document.getElementById('driverRegisterBtn').addEventListener('click', async () => {
+      const name = document.getElementById('driverNameInput').value;
+      const email = document.getElementById('driverEmailInput').value;
+      const password = document.getElementById('driverPassInput').value;
+      try {
+        const res = await fetch('/api/auth/register/driver', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, phone: '9876543210', vehicleNumber: 'DL 01 AB 1234', vehicleModel: 'Swift Dzire' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        driverToken = data.token; driverData = data.driver;
+        sysLog(`DRIVER_REGISTERED — ${name}`, 'success');
+        driverLog('✅ Registered successfully');
+        initDriverSocket();
+        document.getElementById('driverGoOnlineBtn').disabled = false;
+      } catch (err) {
+        sysLog(`DRIVER_REGISTER_FAILED — ${err.message}`, 'error');
+        driverLog(`❌ ${err.message}`);
+      }
+    });
+
+    document.getElementById('driverLoginBtn').addEventListener('click', async () => {
+      const email = document.getElementById('driverEmailInput').value;
+      const password = document.getElementById('driverPassInput').value;
+      try {
+        const res = await fetch('/api/auth/login/driver', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        driverToken = data.token; driverData = data.driver;
+        sysLog(`DRIVER_LOGGED_IN — ${data.driver.name}`, 'success');
+        driverLog('✅ Logged in');
+        initDriverSocket();
+        document.getElementById('driverGoOnlineBtn').disabled = false;
+      } catch (err) {
+        sysLog(`DRIVER_LOGIN_FAILED — ${err.message}`, 'error');
+        driverLog(`❌ ${err.message}`);
+      }
+    });
+
+    function initDriverSocket() {
+      if (driverSocket) driverSocket.disconnect();
+      driverSocket = io(window.location.origin);
+      driverSocket.on('connect', () => {
+        driverSocket.emit('driver_connected', { driverId: driverData.id });
+        sysLog(`DRIVER_SOCKET_CONNECTED — ${driverSocket.id}`, 'info');
+      });
+      driverSocket.on('new_booking', (data) => {
+        sysLog(`NEW_BOOKING → Driver — bookingId: ${data.bookingId}`, 'pending');
+        driverLog('🔔 New ride request received');
+        pendingBookingData = data;
+        document.getElementById('notifDetails').textContent =
+          `Pickup: ${data.userLocation.lat.toFixed(4)}, ${data.userLocation.lng.toFixed(4)} | Dest: ${data.destination.address || 'N/A'}`;
+        document.getElementById('driverNotification').classList.add('show');
+        criteriaCheck('c3');
+      });
+      driverSocket.on('booking_taken', () => {
+        document.getElementById('driverNotification').classList.remove('show');
+        pendingBookingData = null;
+      });
+      driverSocket.on('booking_cancelled', () => {
+        sysLog('BOOKING_CANCELLED received by driver', 'error');
+        driverLog('❌ Ride cancelled');
+        document.getElementById('driverActiveRide').style.display = 'none';
+        activeBookingId = null;
+      });
+      driverSocket.on('status_update', (data) => {
+        sysLog(`DRIVER_STATUS — ${data.status}`, 'info');
+      });
+    }
+
+    // ─── Driver Go Online ───────────────────────────
+    document.getElementById('driverGoOnlineBtn').addEventListener('click', async () => {
+      if (!driverToken) return;
+      driverOnline = !driverOnline;
+      const btn = document.getElementById('driverGoOnlineBtn');
+      const badge = document.getElementById('driverStatus');
+
+      if (driverOnline) {
+        btn.textContent = 'Go Offline';
+        badge.textContent = 'Online';
+        badge.className = 'status-badge online';
+
+        driverSocket.emit('driver_go_online', { driverId: driverData.id, lat: driverLat, lng: driverLng });
+        await fetch('/api/drivers/status', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${driverToken}` },
+          body: JSON.stringify({ isActive: true })
+        });
+        await fetch('/api/drivers/location', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${driverToken}` },
+          body: JSON.stringify({ lat: driverLat, lng: driverLng })
+        });
+
+        driverMarker.setLatLng([driverLat, driverLng]);
+        driverMap.setView([driverLat, driverLng], 15);
+
+        // Simulate movement
+        driverSimInterval = setInterval(() => {
+          if (activeBookingId) {
+            // Move toward user
+            const dLat = userLat - driverLat;
+            const dLng = userLng - driverLng;
+            const step = 0.0003;
+            if (Math.abs(dLat) > step) driverLat += (dLat > 0 ? step : -step);
+            if (Math.abs(dLng) > step) driverLng += (dLng > 0 ? step : -step);
+          } else {
+            driverLat += (Math.random() - 0.5) * 0.0002;
+            driverLng += (Math.random() - 0.5) * 0.0002;
+          }
+          driverMarker.setLatLng([driverLat, driverLng]);
+
+          driverSocket.emit('driver_location_update', {
+            driverId: driverData.id, lat: driverLat, lng: driverLng,
+            bookingId: activeBookingId
+          });
+          fetch('/api/drivers/location', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${driverToken}` },
+            body: JSON.stringify({ lat: driverLat, lng: driverLng })
+          }).catch(() => {});
+        }, 2000);
+
+        sysLog('DRIVER_ONLINE — location updating every 2s', 'success');
+        driverLog('🟢 Online, sending location');
+        criteriaCheck('c1');
+      } else {
+        btn.textContent = 'Go Online';
+        badge.textContent = 'Offline';
+        badge.className = 'status-badge offline';
+        if (driverSimInterval) clearInterval(driverSimInterval);
+        driverSocket.emit('driver_go_offline', { driverId: driverData.id });
+        sysLog('DRIVER_OFFLINE', 'info');
+        driverLog('🔴 Offline');
+      }
+    });
+
+    // ─── Driver Accept ──────────────────────────────
+    document.getElementById('driverAcceptBtn').addEventListener('click', async () => {
+      if (!pendingBookingData) return;
+      try {
+        const res = await fetch(`/api/bookings/${pendingBookingData.bookingId}/accept`, {
+          method: 'POST', headers: { 'Authorization': `Bearer ${driverToken}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        activeBookingId = pendingBookingData.bookingId;
+        document.getElementById('driverNotification').classList.remove('show');
+        document.getElementById('driverActiveRide').style.display = 'block';
+        document.getElementById('driverRideInfo').textContent = `Booking: ${activeBookingId} — Navigating to passenger`;
+
+        sysLog(`BOOKING_ACCEPTED — ${activeBookingId}`, 'success');
+        driverLog('✅ Accepted ride');
+
+        // Show user on driver map
+        const uM = L.marker([pendingBookingData.userLocation.lat, pendingBookingData.userLocation.lng], { icon: blueIcon }).addTo(driverMap);
+        pendingBookingData = null;
+      } catch (err) {
+        sysLog(`ACCEPT_FAILED — ${err.message}`, 'error');
+      }
+    });
+
+    document.getElementById('driverDeclineBtn').addEventListener('click', () => {
+      document.getElementById('driverNotification').classList.remove('show');
+      pendingBookingData = null;
+      sysLog('BOOKING_DECLINED by driver', 'pending');
+      driverLog('⏭ Declined');
+    });
+
+    // ─── Driver Complete ────────────────────────────
+    document.getElementById('driverCompleteBtn').addEventListener('click', async () => {
+      if (!activeBookingId) return;
+      try {
+        const res = await fetch(`/api/bookings/${activeBookingId}/complete`, {
+          method: 'POST', headers: { 'Authorization': `Bearer ${driverToken}` }
+        });
+        if (!res.ok) throw new Error('Complete failed');
+        sysLog(`RIDE_COMPLETED — ${activeBookingId}`, 'success');
+        driverLog('✅ Ride completed');
+        document.getElementById('driverActiveRide').style.display = 'none';
+        activeBookingId = null;
+      } catch (err) {
+        sysLog(`COMPLETE_FAILED — ${err.message}`, 'error');
+      }
+    });
+
+    // ─── User Auth ──────────────────────────────────
+    document.getElementById('userRegisterBtn').addEventListener('click', async () => {
+      const name = document.getElementById('userNameInput').value;
+      const email = document.getElementById('userEmailInput').value;
+      const password = document.getElementById('userPassInput').value;
+      try {
+        const res = await fetch('/api/auth/register/user', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, phone: '9876543210' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        userToken = data.token; userData = data.user;
+        sysLog(`USER_REGISTERED — ${name}`, 'success');
+        userLog('✅ Registered successfully');
+        initUserSocket();
+        document.getElementById('userRequestBtn').disabled = false;
+      } catch (err) {
+        sysLog(`USER_REGISTER_FAILED — ${err.message}`, 'error');
+        userLog(`❌ ${err.message}`);
+      }
+    });
+
+    document.getElementById('userLoginBtn').addEventListener('click', async () => {
+      const email = document.getElementById('userEmailInput').value;
+      const password = document.getElementById('userPassInput').value;
+      try {
+        const res = await fetch('/api/auth/login/user', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        userToken = data.token; userData = data.user;
+        sysLog(`USER_LOGGED_IN — ${data.user.name}`, 'success');
+        userLog('✅ Logged in');
+        initUserSocket();
+        document.getElementById('userRequestBtn').disabled = false;
+      } catch (err) {
+        sysLog(`USER_LOGIN_FAILED — ${err.message}`, 'error');
+        userLog(`❌ ${err.message}`);
+      }
+    });
+
+    function initUserSocket() {
+      if (userSocket) userSocket.disconnect();
+      userSocket = io(window.location.origin);
+      userSocket.on('connect', () => {
+        userSocket.emit('user_connected', { userId: userData.id });
+        sysLog(`USER_SOCKET_CONNECTED — ${userSocket.id}`, 'info');
+      });
+      userSocket.on('booking_accepted', (data) => {
+        sysLog(`BOOKING_ACCEPTED → User — driver: ${data.driver.name}`, 'success');
+        userLog(`✅ Driver accepted: ${data.driver.name}`);
+        document.getElementById('userStatus').textContent = 'Accepted';
+        document.getElementById('userStatus').className = 'status-badge accepted';
+        document.getElementById('userDriverCard').style.display = 'block';
+        document.getElementById('userDriverInfo').textContent =
+          `${data.driver.name} | ${data.driver.vehicleModel} | ${data.driver.vehicleNumber} | ⭐ ${data.driver.rating}`;
+        criteriaCheck('c4');
+
+        // Show driver on user map
+        if (data.driver.location) {
+          if (driverOnUserMap) userMap.removeLayer(driverOnUserMap);
+          driverOnUserMap = L.marker([data.driver.location.lat, data.driver.location.lng], { icon: greenIcon }).addTo(userMap);
+          criteriaCheck('c5');
+          drawRouteOnUserMap(data.driver.location.lat, data.driver.location.lng, userLat, userLng);
+        }
+      });
+      userSocket.on('driver_moving', (data) => {
+        sysLog(`DRIVER_MOVING — [${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}]`, 'info');
+        if (driverOnUserMap) {
+          driverOnUserMap.setLatLng([data.lat, data.lng]);
+        } else {
+          driverOnUserMap = L.marker([data.lat, data.lng], { icon: greenIcon }).addTo(userMap);
+          criteriaCheck('c5');
+        }
+        criteriaCheck('c6');
+        drawRouteOnUserMap(data.lat, data.lng, userLat, userLng);
+      });
+      userSocket.on('driver_location', (data) => {
+        sysLog(`DRIVER_LOCATION — [${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}]`, 'info');
+        if (driverOnUserMap) {
+          driverOnUserMap.setLatLng([data.lat, data.lng]);
+        } else {
+          driverOnUserMap = L.marker([data.lat, data.lng], { icon: greenIcon }).addTo(userMap);
+        }
+        criteriaCheck('c5'); criteriaCheck('c6');
+        drawRouteOnUserMap(data.lat, data.lng, userLat, userLng);
+      });
+      userSocket.on('ride_completed', () => {
+        sysLog('RIDE_COMPLETED received by user', 'success');
+        userLog('✅ Ride completed');
+        document.getElementById('userStatus').textContent = 'Idle';
+        document.getElementById('userStatus').className = 'status-badge offline';
+        document.getElementById('userDriverCard').style.display = 'none';
+        if (driverOnUserMap) { userMap.removeLayer(driverOnUserMap); driverOnUserMap = null; }
+        if (routeLine) { userMap.removeLayer(routeLine); routeLine = null; }
+      });
+      userSocket.on('booking_cancelled', () => {
+        sysLog('BOOKING_CANCELLED received by user', 'error');
+        userLog('❌ Booking cancelled');
+        document.getElementById('userStatus').textContent = 'Idle';
+        document.getElementById('userStatus').className = 'status-badge offline';
+      });
+    }
+
+    // ─── User Request Ride ──────────────────────────
+    document.getElementById('userRequestBtn').addEventListener('click', async () => {
+      if (!userToken) return;
+      const btn = document.getElementById('userRequestBtn');
+      btn.disabled = true; btn.textContent = 'Finding drivers...';
+      document.getElementById('userStatus').textContent = 'Pending';
+      document.getElementById('userStatus').className = 'status-badge pending';
+
+      try {
+        const res = await fetch('/api/bookings/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` },
+          body: JSON.stringify({
+            userLat, userLng, userAddress: 'New Delhi (simulated)',
+            destLat: 28.6304, destLng: 77.2177, destAddress: 'Connaught Place (simulated)'
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        sysLog(`BOOKING_CREATED — id: ${data.bookingId}, drivers: ${data.driversNotified}`, 'pending');
+        userLog(`🔍 Finding drivers... (${data.driversNotified} notified)`);
+        criteriaCheck('c2');
+      } catch (err) {
+        sysLog(`BOOKING_FAILED — ${err.message}`, 'error');
+        userLog(`❌ ${err.message}`);
+        btn.disabled = false; btn.textContent = 'Request Ride';
+      }
+    });
+
+    // ─── Draw Route on User Map ─────────────────────
+    async function drawRouteOnUserMap(lat1, lng1, lat2, lng2) {
+      try {
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=full&geometries=geojson`
+        );
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0) {
+          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          if (routeLine) userMap.removeLayer(routeLine);
+          routeLine = L.polyline(coords, { color: '#378ADD', weight: 3, opacity: 0.8 }).addTo(userMap);
+          criteriaCheck('c7');
+        }
+      } catch (err) { console.error('[OSRM] route error:', err); }
+    }
+
+    // Fix map render inside hidden-ish containers
+    setTimeout(() => { driverMap.invalidateSize(); userMap.invalidateSize(); }, 300);
+  </script>
+</body>
+</html>

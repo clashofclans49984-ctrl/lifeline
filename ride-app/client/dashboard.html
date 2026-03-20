@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Lifeline Dashboard — Request emergency ambulance, track live, view hospitals">
+  <title>Lifeline — Dashboard</title>
+  <link rel="stylesheet" href="/shared/style.css">
+  <style>
+    body { background: var(--bg); }
+    .dash-body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 28px 80px;
+    }
+    /* Emergency Button */
+    .emergency-btn {
+      width: 100%;
+      height: 68px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(135deg, var(--red), var(--red-dark));
+      color: white;
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      cursor: pointer;
+      animation: pulse-red 2s infinite;
+      box-shadow: 0 4px 20px rgba(230,57,70,.4);
+      transition: transform 0.2s;
+      margin-bottom: 24px;
+    }
+    .emergency-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(230,57,70,.5);
+    }
+    /* Feature Grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .feature-card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px 24px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card:hover {
+      border-color: var(--blue);
+      box-shadow: 0 4px 20px rgba(26,79,160,.1);
+      transform: translateY(-1px);
+    }
+    .feature-icon { font-size: 32px; flex-shrink: 0; }
+    .feature-text h3 { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .feature-text p { font-size: 13px; color: var(--muted); }
+    .feature-arrow {
+      margin-left: auto;
+      font-size: 18px;
+      color: var(--muted);
+    }
+    .feature-bg {
+      position: absolute;
+      right: 12px;
+      bottom: -8px;
+      font-size: 80px;
+      opacity: 0.06;
+      pointer-events: none;
+    }
+    /* Bottom Row */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .status-card, .activity-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 20px 24px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .no-booking { color: var(--muted); font-size: 15px; }
+    /* Progress bar */
+    .progress-bar {
+      height: 10px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), #4ade80);
+      border-radius: 999px;
+      transition: width 2s ease;
+    }
+    /* Driver info */
+    .driver-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+    }
+    .driver-photo {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid white;
+      box-shadow: var(--shadow);
+      background: var(--blue-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+    .driver-photo img {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    .driver-info { flex: 1; }
+    .driver-name { font-size: 14px; font-weight: 700; }
+    .driver-vehicle { font-size: 12px; color: var(--muted); }
+    .driver-divider {
+      border: none;
+      border-top: 1px dashed var(--border);
+      margin: 4px 0;
+    }
+    /* Activity list */
+    .activity-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+    }
+    .activity-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .dot-green { background: var(--green-light); color: var(--green); }
+    .dot-red   { background: var(--red-light); color: var(--red); }
+    .activity-text { font-size: 14px; font-weight: 600; }
+    .activity-time { font-size: 12px; color: var(--muted); }
+
+    @media (max-width: 768px) {
+      .feature-grid { grid-template-columns: 1fr; }
+      .bottom-row { grid-template-columns: 1fr; }
+      .dash-body { padding: 16px 16px 64px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="/" class="lifeline-logo">
+      <span class="logo-icon">🚑</span>
+      Life<span class="logo-green">line</span>
+    </a>
+    <div class="navbar-actions">
+      <button class="icon-btn" title="Notifications" id="notif-btn">🔔</button>
+      <button class="icon-btn" title="Profile" id="profile-btn">👤</button>
+      <button class="btn btn-outline" id="logout-btn">⏻ Logout</button>
+    </div>
+  </nav>
+
+  <div class="dash-body">
+    <!-- Emergency Button -->
+    <button class="emergency-btn fade-up" id="emergency-btn">
+      🚑 Request Emergency Ambulance
+    </button>
+
+    <!-- Feature Grid -->
+    <div class="feature-grid">
+      <div class="feature-card fade-up-1" id="track-card">
+        <div class="feature-icon">📍</div>
+        <div class="feature-text">
+          <h3>Track Ambulance</h3>
+          <p>Live driver location</p>
+        </div>
+        <div class="feature-arrow">›</div>
+        <div class="feature-bg">🗺️</div>
+      </div>
+      <div class="feature-card fade-up-1" onclick="location.href='/contacts.html'">
+        <div class="feature-icon">📞</div>
+        <div class="feature-text">
+          <h3>Emergency Contacts</h3>
+          <p>Police, Women, Ambulance</p>
+        </div>
+        <div class="feature-arrow">›</div>
+        <div class="feature-bg">📱</div>
+      </div>
+      <div class="feature-card fade-up-2" onclick="location.href='/hospitals.html'">
+        <div class="feature-icon">🏥</div>
+        <div class="feature-text">
+          <h3>Nearby Hospitals</h3>
+          <p>Within 5–10 km range</p>
+        </div>
+        <div class="feature-arrow">›</div>
+        <div class="feature-bg">🏨</div>
+      </div>
+      <div class="feature-card fade-up-2" onclick="location.href='/hospitals.html'">
+        <div class="feature-icon">🏨</div>
+        <div class="feature-text">
+          <h3>Nearby Hospitals</h3>
+          <p>Emergency ready</p>
+        </div>
+        <div class="feature-arrow">›</div>
+        <div class="feature-bg">➕</div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="bottom-row">
+      <!-- Live Status -->
+      <div class="status-card fade-up-3">
+        <div class="card-title">⚠️ Live Status</div>
+        <div id="status-content">
+          <div class="no-booking" id="no-booking-text">No active booking</div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="activity-card fade-up-4">
+        <div class="card-title">📋 Recent Activity</div>
+        <div id="activity-list">
+          <div style="color:var(--muted);font-size:14px;">No recent activity</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/shared/toast.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    if (!token) { window.location.href = '/signup.html'; }
+
+    // Socket
+    const socket = io(window.location.origin);
+    socket.emit('register_patient', { patientId: userId });
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = '/';
+    });
+
+    // Track card
+    document.getElementById('track-card').addEventListener('click', () => {
+      if (localStorage.getItem('bookingActive') === 'true') {
+        window.location.href = '/track.html';
+      } else {
+        showToast('⚠️ Please book an ambulance first');
+      }
+    });
+
+    // Emergency button
+    document.getElementById('emergency-btn').addEventListener('click', async () => {
+      if (!token) { window.location.href = '/signup.html'; return; }
+
+      if (!navigator.geolocation) {
+        showToast('❌ Geolocation not supported by your browser');
+        return;
+      }
+
+      showToast('📍 Getting your location...');
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          showToast('🚑 Finding ambulance near you...');
+
+          try {
+            const res = await fetch('/api/bookings/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify({ patientLat: lat, patientLng: lng })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+              showToast('❌ ' + (data.error || 'Failed to create booking'));
+              return;
+            }
+
+            localStorage.setItem('bookingActive', 'true');
+            localStorage.setItem('bookingId', data.bookingId);
+            localStorage.setItem('patientLat', lat);
+            localStorage.setItem('patientLng', lng);
+
+            updateStatus('pending');
+            showToast('✅ Request sent! ' + data.nearbyDriverCount + ' drivers notified');
+          } catch (err) {
+            showToast('❌ Network error');
+          }
+        },
+        (err) => {
+          showToast('⚠️ Please allow location access to request ambulance');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    // Status update
+    function updateStatus(phase, driverData) {
+      const el = document.getElementById('status-content');
+      if (phase === 'pending') {
+        el.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;color:var(--blue)">
+            <div class="spinner"></div>
+            <span style="font-size:15px;font-weight:600">Finding nearest ambulance...</span>
+          </div>
+        `;
+      } else if (phase === 'assigned' && driverData) {
+        const driverPhotoHTML = driverData.driverPhoto
+          ? `<img src="${driverData.driverPhoto}" alt="Driver">`
+          : '👨';
+        const assistantPhotoHTML = driverData.assistantPhoto
+          ? `<img src="${driverData.assistantPhoto}" alt="Assistant">`
+          : '👩';
+
+        el.innerHTML = `
+          <div style="font-size:15px;font-weight:600;color:var(--green);margin-bottom:8px">
+            🚑 Ambulance arriving in ${driverData.estimatedMinutes || '?'} minutes...
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+          <div class="driver-row">
+            <div class="driver-photo">${driverPhotoHTML}</div>
+            <div class="driver-info">
+              <div class="driver-name">${driverData.driverName || 'Driver'}</div>
+              <div class="driver-vehicle">Ambulance • ${driverData.vehicleNumber || ''}</div>
+            </div>
+            <span class="pill pill-green">🟢 En Route</span>
+          </div>
+          <hr class="driver-divider">
+          <div class="driver-row">
+            <div class="driver-photo">${assistantPhotoHTML}</div>
+            <div class="driver-info">
+              <div class="driver-name">${driverData.assistantName || 'Assistant'}</div>
+              <div class="driver-vehicle">Nursing Assistant</div>
+            </div>
+            <span class="pill pill-green">🏥 On Board</span>
+          </div>
+        `;
+        setTimeout(() => {
+          const fill = document.getElementById('progress-fill');
+          if (fill) fill.style.width = '75%';
+        }, 100);
+      }
+    }
+
+    // Socket: booking accepted
+    socket.on('booking_accepted', (data) => {
+      localStorage.setItem('bookingActive', 'true');
+      localStorage.setItem('bookingId', data.bookingId);
+      updateStatus('assigned', data);
+      showToast('🚑 Ambulance assigned! Driver: ' + data.driverName);
+      setTimeout(() => {
+        window.location.href = '/track.html';
+      }, 2000);
+    });
+
+    // Socket: ride completed
+    socket.on('ride_completed', () => {
+      localStorage.removeItem('bookingActive');
+      localStorage.removeItem('bookingId');
+      showToast('✅ Ambulance has arrived. Help is here.');
+      document.getElementById('status-content').innerHTML = '<div class="no-booking">No active booking</div>';
+      loadHistory();
+    });
+
+    // Socket: booking cancelled
+    socket.on('booking_cancelled', () => {
+      localStorage.removeItem('bookingActive');
+      localStorage.removeItem('bookingId');
+      showToast('❌ Booking was cancelled');
+      document.getElementById('status-content').innerHTML = '<div class="no-booking">No active booking</div>';
+    });
+
+    // Check active booking on load
+    async function checkActiveBooking() {
+      try {
+        const res = await fetch('/api/bookings/active', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.booking) {
+          localStorage.setItem('bookingActive', 'true');
+          localStorage.setItem('bookingId', data.booking._id);
+          if (data.booking.status === 'pending') {
+            updateStatus('pending');
+          } else if (data.booking.driverId) {
+            const d = data.booking.driverId;
+            updateStatus('assigned', {
+              driverName: d.name,
+              vehicleNumber: d.vehicleNumber,
+              driverPhoto: d.driverPhoto,
+              assistantName: d.assistantName,
+              assistantPhoto: d.assistantPhoto,
+              estimatedMinutes: data.booking.estimatedMinutes
+            });
+          }
+        } else {
+          localStorage.removeItem('bookingActive');
+          localStorage.removeItem('bookingId');
+        }
+      } catch (err) {}
+    }
+
+    // Load history
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/bookings/history', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        const list = document.getElementById('activity-list');
+        if (data.bookings && data.bookings.length > 0) {
+          list.innerHTML = data.bookings.slice(0, 3).map(b => {
+            const isCompleted = b.status === 'completed';
+            const icon = isCompleted ? '✓' : '✕';
+            const dotClass = isCompleted ? 'dot-green' : 'dot-red';
+            const label = isCompleted ? 'Ambulance booked' : 'Cancelled';
+            const time = new Date(b.createdAt).toLocaleString('en-IN', {
+              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+            return `
+              <div class="activity-item">
+                <div class="activity-dot ${dotClass}">${icon}</div>
+                <div>
+                  <div class="activity-text">${label}</div>
+                  <div class="activity-time">${time}</div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {}
+    }
+
+    checkActiveBooking();
+    loadHistory();
+  </script>
+</body>
+</html>

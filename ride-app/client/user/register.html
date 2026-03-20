@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passenger Registration — RideNow</title>
+  <style>
+    :root {
+      --blue: #378ADD; --blue-dark: #2a6db5;
+      --dark: #1a1a2e; --darker: #0f0f23;
+      --gray-100: #f8f9fa; --gray-400: #ced4da; --gray-600: #6c757d;
+      --white: #ffffff; --red: #e74c3c;
+      --radius: 14px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--darker); min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-container {
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      max-width: 420px; width: 100%;
+      margin: 24px;
+      animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .auth-header { text-align: center; margin-bottom: 28px; }
+    .auth-header .icon { font-size: 40px; margin-bottom: 12px; }
+    .auth-header h1 { color: var(--white); font-size: 1.5rem; font-weight: 700; }
+    .auth-header p { color: var(--gray-400); font-size: 0.9rem; margin-top: 4px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; color: var(--gray-400); font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; }
+    .form-group input {
+      width: 100%; padding: 12px 16px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; color: var(--white); font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+    .form-group input::placeholder { color: var(--gray-600); }
+    .form-group input:focus { outline: none; border-color: var(--blue); }
+    .btn-primary {
+      width: 100%; padding: 14px;
+      background: var(--blue); color: var(--white);
+      border: none; border-radius: 10px;
+      font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      margin-top: 8px;
+    }
+    .btn-primary:hover { background: var(--blue-dark); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .alt-link { text-align: center; margin-top: 20px; color: var(--gray-400); font-size: 0.88rem; }
+    .alt-link a { color: var(--blue); text-decoration: none; font-weight: 600; }
+    .alt-link a:hover { text-decoration: underline; }
+    .error-msg { color: var(--red); font-size: 0.85rem; text-align: center; margin-bottom: 12px; display: none; background: rgba(231,76,60,0.1); border-radius: 8px; padding: 10px; }
+    .back-link { position: absolute; top: 24px; left: 24px; color: var(--gray-400); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
+    .back-link:hover { color: var(--white); }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-link">← Home</a>
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="icon">🧑</div>
+      <h1>Create Account</h1>
+      <p>Register as a passenger</p>
+    </div>
+    <div id="error" class="error-msg"></div>
+    <form id="registerForm">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" placeholder="John Doe" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone Number</label>
+        <input type="tel" id="phone" placeholder="+91 9876543210" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Min 6 characters" required minlength="6">
+      </div>
+      <button type="submit" class="btn-primary" id="registerBtn">Create Account</button>
+    </form>
+    <div class="alt-link">
+      Already have an account? <a href="/user/login.html">Sign In</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('registerForm');
+    const errorEl = document.getElementById('error');
+    const registerBtn = document.getElementById('registerBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      registerBtn.disabled = true;
+      registerBtn.textContent = 'Creating account...';
+
+      try {
+        const res = await fetch('/api/auth/register/user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.href = '/user/dashboard.html';
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        registerBtn.disabled = false;
+        registerBtn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

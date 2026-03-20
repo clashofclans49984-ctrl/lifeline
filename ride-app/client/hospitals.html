@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Find nearby hospitals on a live map">
+  <title>Lifeline — Nearby Hospitals</title>
+  <link rel="stylesheet" href="/shared/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body { background: var(--bg); margin: 0; }
+    .hospitals-wrap { display: flex; flex-direction: column; height: 100vh; }
+    .hospitals-main { display: flex; flex: 1; overflow: hidden; }
+    #hosp-map { width: 400px; flex-shrink: 0; }
+    .hosp-list-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      background: var(--bg);
+    }
+    .hosp-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .hosp-sub { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+    .hosp-card {
+      background: white;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .hosp-card:hover {
+      border-color: var(--blue);
+      box-shadow: 0 4px 16px rgba(26,79,160,.1);
+    }
+    .hosp-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .hosp-info { flex: 1; }
+    .hosp-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .hosp-dist { font-size: 13px; color: var(--muted); }
+    .hosp-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .nav-btn {
+      padding: 8px 16px;
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover { background: var(--blue-mid); }
+    .loading-msg {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 20px;
+      font-size: 15px;
+    }
+    /* Mini live map */
+    .mini-map-wrap {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 200px;
+      height: 140px;
+      border-radius: 14px;
+      border: 3px solid white;
+      box-shadow: var(--shadow-lg);
+      z-index: 150;
+      overflow: hidden;
+      display: none;
+    }
+    .mini-map-label {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 200;
+    }
+    #mini-map { width: 100%; height: 100%; }
+
+    @media (max-width: 768px) {
+      .hospitals-main { flex-direction: column; }
+      #hosp-map { width: 100%; height: 250px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hospitals-wrap">
+    <nav class="navbar">
+      <a href="/" class="lifeline-logo">
+        <span class="logo-icon">🚑</span>
+        Life<span class="logo-green">line</span>
+      </a>
+      <div class="navbar-actions">
+        <a href="/dashboard.html" class="btn btn-outline">← Dashboard</a>
+      </div>
+    </nav>
+
+    <div class="hospitals-main">
+      <div id="hosp-map"></div>
+      <div class="hosp-list-panel">
+        <h1 class="hosp-title fade-up">🏥 Hospitals Near You</h1>
+        <p class="hosp-sub fade-up-1">Showing results within 5 km (10 km if none found)</p>
+        <div id="hosp-list">
+          <div class="loading-msg"><div class="spinner" style="margin:0 auto 12px;"></div>Searching for hospitals...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mini live map for active booking -->
+    <div class="mini-map-wrap" id="mini-map-wrap">
+      <div class="mini-map-label"><span class="pill pill-blue" style="font-size:11px;padding:4px 10px;">🚑 Live</span></div>
+      <div id="mini-map"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/shared/toast.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    let userLat, userLng;
+    let hospMap, miniMap, miniDriverMarker;
+
+    // Get user location
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        initHospitalMap();
+        searchHospitals(5000);
+      },
+      () => {
+        userLat = 28.6139;
+        userLng = 77.2090;
+        showToast('⚠️ Using default location. Please allow location access.');
+        initHospitalMap();
+        searchHospitals(5000);
+      }
+    );
+
+    function initHospitalMap() {
+      hospMap = L.map('hosp-map').setView([userLat, userLng], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(hospMap);
+
+      // User marker
+      L.circleMarker([userLat, userLng], {
+        radius: 10, color: '#1a4fa0', fillColor: '#2563c0', fillOpacity: 0.9, weight: 2
+      }).addTo(hospMap).bindPopup('📍 Your Location');
+    }
+
+    // Haversine distance
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    async function searchHospitals(radius) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=hospital&format=json&limit=10&lat=${userLat}&lon=${userLng}&bounded=1&viewbox=${userLng-0.05},${userLat+0.05},${userLng+0.05},${userLat-0.05}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'LifelineApp/1.0' } });
+        let results = await res.json();
+
+        // Filter by distance
+        results = results.filter(h => {
+          const dist = haversine(userLat, userLng, parseFloat(h.lat), parseFloat(h.lon));
+          return dist <= radius / 1000;
+        });
+
+        if (results.length < 2 && radius < 10000) {
+          return searchHospitals(10000);
+        }
+
+        renderHospitals(results);
+      } catch (err) {
+        document.getElementById('hosp-list').innerHTML = '<div class="loading-msg">❌ Failed to search hospitals</div>';
+      }
+    }
+
+    function renderHospitals(hospitals) {
+      const list = document.getElementById('hosp-list');
+      if (hospitals.length === 0) {
+        list.innerHTML = '<div class="loading-msg">No hospitals found nearby. Try expanding your search area.</div>';
+        return;
+      }
+
+      const markers = [];
+      list.innerHTML = hospitals.map((h, i) => {
+        const dist = haversine(userLat, userLng, parseFloat(h.lat), parseFloat(h.lon));
+        const name = h.display_name.split(',')[0];
+        const navUrl = `https://www.google.com/maps/dir/${userLat},${userLng}/${h.lat},${h.lon}`;
+
+        // Add map marker
+        const marker = L.circleMarker([parseFloat(h.lat), parseFloat(h.lon)], {
+          radius: 16, color: '#1a4fa0', fillColor: '#1a4fa0', fillOpacity: 0.8, weight: 2
+        }).addTo(hospMap);
+        marker.bindPopup(`<b>${i+1}. ${name}</b><br>${dist.toFixed(1)} km`);
+
+        // Number label
+        L.marker([parseFloat(h.lat), parseFloat(h.lon)], {
+          icon: L.divIcon({
+            html: `<div style="color:white;font-size:12px;font-weight:700;text-align:center;line-height:32px;">${i+1}</div>`,
+            className: '',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+          })
+        }).addTo(hospMap);
+
+        markers.push([parseFloat(h.lat), parseFloat(h.lon)]);
+
+        return `
+          <div class="hosp-card fade-up-${Math.min(i+1, 4)}">
+            <div class="hosp-num">${i + 1}</div>
+            <div class="hosp-info">
+              <div class="hosp-name">${name}</div>
+              <div class="hosp-dist">${dist.toFixed(1)} km away</div>
+            </div>
+            <div class="hosp-actions">
+              <span class="pill pill-green" style="font-size:11px;padding:4px 10px;">Open 24h</span>
+              <a href="${navUrl}" target="_blank" class="nav-btn">Navigate</a>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Fit map to all markers + user
+      markers.push([userLat, userLng]);
+      hospMap.fitBounds(markers, { padding: [30, 30] });
+    }
+
+    // Mini map for active booking
+    async function checkActiveBookingMini() {
+      if (!token) return;
+      try {
+        const res = await fetch('/api/bookings/active', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.booking && data.booking.driverId) {
+          const wrap = document.getElementById('mini-map-wrap');
+          wrap.style.display = 'block';
+
+          miniMap = L.map('mini-map', { zoomControl: false, attributionControl: false }).setView([userLat || 28.6, userLng || 77.2], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(miniMap);
+
+          L.circleMarker([userLat || 28.6, userLng || 77.2], {
+            radius: 6, color: '#1a4fa0', fillColor: '#2563c0', fillOpacity: 0.9
+          }).addTo(miniMap);
+
+          const d = data.booking.driverId;
+          const dLat = d.location ? d.location.coordinates[1] : userLat;
+          const dLng = d.location ? d.location.coordinates[0] : userLng;
+          const icon = L.divIcon({
+            html: '<div style="font-size:20px">🚑</div>',
+            className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+          });
+          miniDriverMarker = L.marker([dLat, dLng], { icon }).addTo(miniMap);
+
+          // Socket for live updates
+          const socket = io(window.location.origin);
+          socket.emit('register_patient', { patientId: userId });
+          socket.on('driver_moving', (ev) => {
+            if (miniDriverMarker) miniDriverMarker.setLatLng([ev.driverLat, ev.driverLng]);
+          });
+        }
+      } catch (err) {}
+    }
+    checkActiveBookingMini();
+  </script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passenger Dashboard — RideNow</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --blue: #378ADD; --blue-dark: #2a6db5; --blue-light: rgba(55,138,221,0.12);
+      --green: #1D9E75; --green-light: rgba(29,158,117,0.12);
+      --dark: #1a1a2e; --darker: #0f0f23;
+      --gray-50: #f4f5f7; --gray-100: #f8f9fa; --gray-200: #e9ecef;
+      --gray-400: #ced4da; --gray-600: #6c757d; --gray-800: #343a40;
+      --white: #ffffff; --red: #e74c3c; --amber: #f39c12;
+      --radius: 14px; --radius-sm: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--gray-50); min-height: 100vh; color: var(--gray-800);
+    }
+
+    /* ─── Header ────────────────────────────────── */
+    .header {
+      background: var(--white); border-bottom: 1px solid var(--gray-200);
+      padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 1000;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-logo { font-weight: 800; font-size: 1.15rem; }
+    .header-logo span:first-child { color: var(--blue); }
+    .header-logo span:last-child { color: var(--green); }
+    .header-user { font-size: 0.9rem; color: var(--gray-600); }
+    .btn-logout {
+      background: none; border: 1px solid var(--gray-200); border-radius: 8px;
+      padding: 8px 16px; font-size: 0.85rem; color: var(--gray-600);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+    /* ─── Status Bar ────────────────────────────── */
+    .status-bar {
+      background: var(--blue-light); border-left: 4px solid var(--blue);
+      padding: 12px 20px; font-size: 0.9rem; color: var(--blue-dark);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .status-bar.pending { background: rgba(243,156,18,0.1); border-color: var(--amber); color: #b07d10; }
+    .status-bar.accepted { background: var(--green-light); border-color: var(--green); color: #157a5b; }
+    .status-bar.cancelled { background: rgba(231,76,60,0.1); border-color: var(--red); color: var(--red); }
+    .spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Map ───────────────────────────────────── */
+    #map { width: 100%; height: 400px; }
+
+    /* ─── Search ────────────────────────────────── */
+    .search-section { padding: 16px 20px; background: var(--white); border-bottom: 1px solid var(--gray-200); }
+    .search-wrap { position: relative; }
+    .search-wrap input {
+      width: 100%; padding: 14px 16px 14px 42px;
+      border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+      font-size: 0.95rem; transition: border-color 0.2s;
+    }
+    .search-wrap input:focus { outline: none; border-color: var(--blue); }
+    .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--gray-400); }
+    .search-results {
+      position: absolute; top: 100%; left: 0; right: 0; background: var(--white);
+      border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+      max-height: 200px; overflow-y: auto; z-index: 500; display: none;
+      box-shadow: var(--shadow);
+    }
+    .search-results.show { display: block; }
+    .search-result-item {
+      padding: 12px 16px; cursor: pointer; font-size: 0.88rem;
+      border-bottom: 1px solid var(--gray-100); transition: background 0.15s;
+    }
+    .search-result-item:hover { background: var(--blue-light); }
+
+    /* ─── Book Now ──────────────────────────────── */
+    .book-section { padding: 16px 20px; }
+    .btn-book {
+      width: 100%; padding: 16px; background: var(--blue); color: var(--white);
+      border: none; border-radius: var(--radius-sm); font-size: 1.05rem;
+      font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-book:hover { background: var(--blue-dark); transform: translateY(-1px); }
+    .btn-book:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .dest-info { font-size: 0.85rem; color: var(--gray-600); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .dest-info .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+
+    /* ─── Driver Info Card ──────────────────────── */
+    .driver-card {
+      background: var(--white); border-radius: var(--radius);
+      padding: 20px; margin: 16px 20px; box-shadow: var(--shadow);
+      display: none; animation: slideUp 0.3s ease;
+    }
+    .driver-card.show { display: block; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .driver-card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .driver-avatar {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: var(--green-light); display: flex; align-items: center;
+      justify-content: center; font-size: 22px;
+    }
+    .driver-name { font-weight: 700; font-size: 1.05rem; }
+    .driver-rating { color: var(--amber); font-size: 0.85rem; }
+    .driver-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .driver-detail { background: var(--gray-100); border-radius: 8px; padding: 10px 12px; }
+    .driver-detail-label { font-size: 0.75rem; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; }
+    .driver-detail-value { font-weight: 600; font-size: 0.9rem; margin-top: 2px; }
+
+    /* ─── Cancel ─────────────────────────────────── */
+    .cancel-section { padding: 0 20px 20px; }
+    .btn-cancel {
+      width: 100%; padding: 14px; background: rgba(231,76,60,0.08);
+      color: var(--red); border: 1px solid rgba(231,76,60,0.2);
+      border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; display: none;
+    }
+    .btn-cancel.show { display: block; }
+    .btn-cancel:hover { background: rgba(231,76,60,0.15); }
+
+    /* ─── Toast ──────────────────────────────────── */
+    .toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      padding: 14px 20px; border-radius: var(--radius-sm);
+      color: var(--white); font-size: 0.88rem; font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+      max-width: 340px;
+    }
+    .toast.success { background: var(--green); }
+    .toast.info { background: var(--blue); }
+    .toast.error { background: var(--red); }
+    .toast.warning { background: var(--amber); }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
+
+    @media (max-width: 480px) {
+      #map { height: 300px; }
+      .driver-details { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo"><span>Ride</span><span>Now</span></div>
+      <span class="header-user" id="userName">Passenger</span>
+    </div>
+    <button class="btn-logout" id="logoutBtn">Logout</button>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar" id="statusBar">
+    <span>📍</span> Ready to book your ride
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Search Destination -->
+  <div class="search-section" id="searchSection">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="Where to? Search destination..." autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+  </div>
+
+  <!-- Book Now -->
+  <div class="book-section" id="bookSection">
+    <div class="dest-info" id="destInfo" style="display:none">
+      <span class="dot"></span>
+      <span id="destAddress">Destination</span>
+    </div>
+    <button class="btn-book" id="bookBtn" disabled>Select a destination first</button>
+  </div>
+
+  <!-- Driver Info Card -->
+  <div class="driver-card" id="driverCard">
+    <div class="driver-card-header">
+      <div class="driver-avatar">🚗</div>
+      <div>
+        <div class="driver-name" id="driverName">Driver</div>
+        <div class="driver-rating" id="driverRating">⭐ 5.0</div>
+      </div>
+    </div>
+    <div class="driver-details">
+      <div class="driver-detail">
+        <div class="driver-detail-label">Vehicle</div>
+        <div class="driver-detail-value" id="driverVehicle">—</div>
+      </div>
+      <div class="driver-detail">
+        <div class="driver-detail-label">Plate No.</div>
+        <div class="driver-detail-value" id="driverPlate">—</div>
+      </div>
+      <div class="driver-detail">
+        <div class="driver-detail-label">ETA</div>
+        <div class="driver-detail-value" id="driverETA">Calculating...</div>
+      </div>
+      <div class="driver-detail">
+        <div class="driver-detail-label">Status</div>
+        <div class="driver-detail-value" id="rideStatus">En Route</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel -->
+  <div class="cancel-section">
+    <button class="btn-cancel" id="cancelBtn">Cancel Ride</button>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // ─── Auth Check ─────────────────────────────────
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!token || !user.id) { window.location.href = '/user/login.html'; }
+    document.getElementById('userName').textContent = user.name || 'Passenger';
+
+    // ─── State ──────────────────────────────────────
+    let myLat = null, myLng = null;
+    let destLat = null, destLng = null, destAddr = '';
+    let activeBookingId = null;
+    let searchTimeout = null;
+
+    // ─── Map Setup ──────────────────────────────────
+    const map = L.map('map').setView([28.6139, 77.2090], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Custom icons
+    const userIcon = L.divIcon({
+      className: '',
+      html: '<div style="width:32px;height:32px;background:#378ADD;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🧑</div>',
+      iconSize: [32, 32], iconAnchor: [16, 16]
+    });
+    const driverIcon = L.divIcon({
+      className: '',
+      html: '<div style="width:36px;height:36px;background:#1D9E75;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">🚗</div>',
+      iconSize: [36, 36], iconAnchor: [18, 18]
+    });
+    const destIcon = L.divIcon({
+      className: '',
+      html: '<div style="width:28px;height:28px;background:#e74c3c;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;">📍</div>',
+      iconSize: [28, 28], iconAnchor: [14, 14]
+    });
+
+    let userMarker = null, driverMarker = null, destMarker = null;
+    let routeLine = null;
+
+    // ─── Geolocation ────────────────────────────────
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          myLat = pos.coords.latitude;
+          myLng = pos.coords.longitude;
+          map.setView([myLat, myLng], 15);
+          userMarker = L.marker([myLat, myLng], { icon: userIcon }).addTo(map).bindPopup('You are here');
+          showToast('Location detected!', 'success');
+          console.log(`[USER] Location: ${myLat}, ${myLng}`);
+        },
+        (err) => {
+          console.warn('[USER] Geolocation error, using default:', err.message);
+          myLat = 28.6139; myLng = 77.2090;
+          map.setView([myLat, myLng], 15);
+          userMarker = L.marker([myLat, myLng], { icon: userIcon }).addTo(map).bindPopup('Default location (Delhi)');
+          showToast('Using default location (Delhi)', 'warning');
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      myLat = 28.6139; myLng = 77.2090;
+      map.setView([myLat, myLng], 15);
+      userMarker = L.marker([myLat, myLng], { icon: userIcon }).addTo(map);
+    }
+
+    // ─── Search / Nominatim ─────────────────────────
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      const q = searchInput.value.trim();
+      if (q.length < 3) { searchResults.classList.remove('show'); return; }
+      searchTimeout = setTimeout(() => searchPlace(q), 400);
+    });
+
+    async function searchPlace(query) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+        const data = await res.json();
+        searchResults.innerHTML = '';
+        if (data.length === 0) {
+          searchResults.innerHTML = '<div class="search-result-item" style="color:#999">No results found</div>';
+        } else {
+          data.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.textContent = item.display_name;
+            div.addEventListener('click', () => selectDestination(item));
+            searchResults.appendChild(div);
+          });
+        }
+        searchResults.classList.add('show');
+      } catch (err) {
+        console.error('[SEARCH] Error:', err);
+      }
+    }
+
+    function selectDestination(place) {
+      destLat = parseFloat(place.lat);
+      destLng = parseFloat(place.lon);
+      destAddr = place.display_name;
+      searchInput.value = destAddr;
+      searchResults.classList.remove('show');
+
+      // Show dest marker
+      if (destMarker) map.removeLayer(destMarker);
+      destMarker = L.marker([destLat, destLng], { icon: destIcon }).addTo(map).bindPopup('Destination');
+
+      // Fit bounds
+      if (userMarker) {
+        const bounds = L.latLngBounds([
+          [myLat, myLng], [destLat, destLng]
+        ]);
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+
+      document.getElementById('destInfo').style.display = 'flex';
+      document.getElementById('destAddress').textContent = destAddr.substring(0, 60) + '...';
+      const bookBtn = document.getElementById('bookBtn');
+      bookBtn.disabled = false;
+      bookBtn.textContent = '🚗 Book Now';
+      console.log(`[USER] Destination selected: ${destLat}, ${destLng}`);
+    }
+
+    // Close search on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrap')) searchResults.classList.remove('show');
+    });
+
+    // ─── Socket.io ──────────────────────────────────
+    const socket = io(window.location.origin);
+    socket.on('connect', () => {
+      console.log('[SOCKET] Connected:', socket.id);
+      socket.emit('user_connected', { userId: user.id });
+    });
+
+    // ─── Book Now ───────────────────────────────────
+    document.getElementById('bookBtn').addEventListener('click', async () => {
+      if (!myLat || !destLat) return;
+      const bookBtn = document.getElementById('bookBtn');
+      bookBtn.disabled = true;
+      bookBtn.textContent = 'Finding drivers...';
+      updateStatus('pending', '<div class="spinner"></div> Finding nearby drivers...');
+
+      try {
+        const res = await fetch('/api/bookings/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            userLat: myLat, userLng: myLng,
+            userAddress: 'Current Location',
+            destLat, destLng, destAddress: destAddr
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Booking failed');
+
+        activeBookingId = data.bookingId;
+        showToast(`Ride requested! ${data.driversNotified} drivers notified`, 'info');
+        document.getElementById('cancelBtn').classList.add('show');
+        document.getElementById('searchSection').style.display = 'none';
+        document.getElementById('bookSection').style.display = 'none';
+        console.log(`[BOOKING] Created: ${data.bookingId}, Drivers: ${data.driversNotified}`);
+      } catch (err) {
+        showToast(err.message, 'error');
+        bookBtn.disabled = false;
+        bookBtn.textContent = '🚗 Book Now';
+        updateStatus('', '📍 Ready to book your ride');
+      }
+    });
+
+    // ─── Socket Events ──────────────────────────────
+    socket.on('booking_accepted', (data) => {
+      console.log('[SOCKET] booking_accepted:', data);
+      showToast('Driver accepted your ride!', 'success');
+      updateStatus('accepted', '✅ Driver is on the way!');
+
+      // Show driver card
+      document.getElementById('driverName').textContent = data.driver.name;
+      document.getElementById('driverRating').textContent = `⭐ ${data.driver.rating.toFixed(1)}`;
+      document.getElementById('driverVehicle').textContent = data.driver.vehicleModel;
+      document.getElementById('driverPlate').textContent = data.driver.vehicleNumber;
+      document.getElementById('driverCard').classList.add('show');
+
+      // Show driver marker
+      if (data.driver.location) {
+        const dLat = data.driver.location.lat;
+        const dLng = data.driver.location.lng;
+        if (driverMarker) map.removeLayer(driverMarker);
+        driverMarker = L.marker([dLat, dLng], { icon: driverIcon }).addTo(map).bindPopup(data.driver.name);
+        drawRoute(dLat, dLng, myLat, myLng);
+      }
+    });
+
+    socket.on('driver_moving', (data) => {
+      console.log('[SOCKET] driver_moving:', data);
+      if (driverMarker) {
+        driverMarker.setLatLng([data.lat, data.lng]);
+      } else {
+        driverMarker = L.marker([data.lat, data.lng], { icon: driverIcon }).addTo(map);
+      }
+      // Recalculate route
+      drawRoute(data.lat, data.lng, myLat, myLng);
+    });
+
+    socket.on('driver_location', (data) => {
+      console.log('[SOCKET] driver_location:', data);
+      if (driverMarker) {
+        driverMarker.setLatLng([data.lat, data.lng]);
+      } else {
+        driverMarker = L.marker([data.lat, data.lng], { icon: driverIcon }).addTo(map);
+      }
+      drawRoute(data.lat, data.lng, myLat, myLng);
+    });
+
+    socket.on('booking_cancelled', (data) => {
+      console.log('[SOCKET] booking_cancelled:', data);
+      showToast('Ride has been cancelled', 'error');
+      resetUI();
+    });
+
+    socket.on('ride_completed', (data) => {
+      console.log('[SOCKET] ride_completed:', data);
+      showToast('Ride completed! Thanks for riding!', 'success');
+      resetUI();
+    });
+
+    socket.on('booking_taken', (data) => {
+      console.log('[SOCKET] booking_taken (ignored for user):', data);
+    });
+
+    socket.on('message_received', (data) => {
+      console.log('[SOCKET] message_received:', data);
+      showToast(`💬 ${data.fromName}: ${data.message}`, 'info');
+    });
+
+    // ─── Cancel ─────────────────────────────────────
+    document.getElementById('cancelBtn').addEventListener('click', async () => {
+      if (!activeBookingId) return;
+      try {
+        await fetch(`/api/bookings/${activeBookingId}/cancel`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        showToast('Ride cancelled', 'warning');
+        resetUI();
+      } catch (err) {
+        showToast('Cancel failed', 'error');
+      }
+    });
+
+    // ─── Draw Route (OSRM) ─────────────────────────
+    async function drawRoute(lat1, lng1, lat2, lng2) {
+      try {
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=full&geometries=geojson`
+        );
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0) {
+          const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          if (routeLine) map.removeLayer(routeLine);
+          routeLine = L.polyline(coords, { color: '#378ADD', weight: 4, opacity: 0.8 }).addTo(map);
+
+          // ETA
+          const durationMin = Math.ceil(data.routes[0].duration / 60);
+          document.getElementById('driverETA').textContent = `${durationMin} min`;
+        }
+      } catch (err) {
+        console.error('[OSRM] Route error:', err);
+      }
+    }
+
+    // ─── Helpers ────────────────────────────────────
+    function updateStatus(type, html) {
+      const bar = document.getElementById('statusBar');
+      bar.className = 'status-bar ' + type;
+      bar.innerHTML = html;
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function resetUI() {
+      activeBookingId = null;
+      updateStatus('', '📍 Ready to book your ride');
+      document.getElementById('driverCard').classList.remove('show');
+      document.getElementById('cancelBtn').classList.remove('show');
+      document.getElementById('searchSection').style.display = '';
+      document.getElementById('bookSection').style.display = '';
+      const bookBtn = document.getElementById('bookBtn');
+      bookBtn.disabled = true;
+      bookBtn.textContent = 'Select a destination first';
+      document.getElementById('destInfo').style.display = 'none';
+      if (driverMarker) { map.removeLayer(driverMarker); driverMarker = null; }
+      if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+      if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+    }
+
+    // ─── Logout ─────────────────────────────────────
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = '/';
+    });
+
+    // ─── Check active booking on load ───────────────
+    (async () => {
+      try {
+        const res = await fetch('/api/bookings/active', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.booking) {
+          activeBookingId = data.booking._id;
+          if (data.booking.status === 'pending') {
+            updateStatus('pending', '<div class="spinner"></div> Finding nearby drivers...');
+            document.getElementById('cancelBtn').classList.add('show');
+            document.getElementById('searchSection').style.display = 'none';
+            document.getElementById('bookSection').style.display = 'none';
+          } else if (['accepted', 'driver_arriving', 'in_progress'].includes(data.booking.status)) {
+            updateStatus('accepted', '✅ Driver is on the way!');
+            document.getElementById('cancelBtn').classList.add('show');
+            document.getElementById('searchSection').style.display = 'none';
+            document.getElementById('bookSection').style.display = 'none';
+            if (data.booking.driverId) {
+              const d = data.booking.driverId;
+              document.getElementById('driverName').textContent = d.name;
+              document.getElementById('driverRating').textContent = `⭐ ${(d.rating || 5).toFixed(1)}`;
+              document.getElementById('driverVehicle').textContent = d.vehicleModel;
+              document.getElementById('driverPlate').textContent = d.vehicleNumber;
+              document.getElementById('driverCard').classList.add('show');
+              if (d.location && d.location.coordinates) {
+                const dLat = d.location.coordinates[1];
+                const dLng = d.location.coordinates[0];
+                driverMarker = L.marker([dLat, dLng], { icon: driverIcon }).addTo(map);
+              }
+            }
+          }
+        }
+      } catch (e) { console.log('[USER] No active booking'); }
+    })();
+  </script>
+</body>
+</html>

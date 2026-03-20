@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Emergency contacts — call ambulance, police, fire, women helpline">
+  <title>Lifeline — Emergency Contacts</title>
+  <link rel="stylesheet" href="/shared/style.css">
+  <style>
+    body { background: var(--bg); }
+    .contacts-container {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    .contacts-heading {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .contacts-sub {
+      color: var(--muted);
+      font-size: 15px;
+      margin-bottom: 28px;
+    }
+    .contact-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 20px 24px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.2s;
+      box-shadow: var(--shadow);
+    }
+    .contact-card:hover {
+      border-color: var(--blue);
+      transform: translateY(-1px);
+    }
+    .contact-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .icon-red    { background: #fee2e2; }
+    .icon-blue   { background: #eff6ff; }
+    .icon-purple { background: #fdf4ff; }
+    .icon-amber  { background: #fffbeb; }
+    .icon-green  { background: #f0fdf4; }
+    .contact-info { flex: 1; }
+    .contact-name {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .contact-number {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--blue);
+    }
+    .call-btn {
+      background: var(--green);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .call-btn:hover {
+      background: #15803d;
+      transform: translateY(-1px);
+    }
+    .bottom-note {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 24px;
+      line-height: 1.6;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--blue); }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="/" class="lifeline-logo">
+      <span class="logo-icon">🚑</span>
+      Life<span class="logo-green">line</span>
+    </a>
+    <div class="navbar-actions">
+      <a href="/dashboard.html" class="btn btn-outline">← Dashboard</a>
+    </div>
+  </nav>
+
+  <div class="contacts-container">
+    <a href="/dashboard.html" class="back-link fade-up">← Back to Dashboard</a>
+    <h1 class="contacts-heading fade-up-1">📞 Emergency Contacts</h1>
+    <p class="contacts-sub fade-up-1">One tap to call — always available</p>
+
+    <div class="contact-card fade-up-2">
+      <div class="contact-icon icon-red">🚑</div>
+      <div class="contact-info">
+        <div class="contact-name">Ambulance Helpline</div>
+        <div class="contact-number">108</div>
+      </div>
+      <a href="tel:108" class="call-btn">📞 Call</a>
+    </div>
+
+    <div class="contact-card fade-up-2">
+      <div class="contact-icon icon-blue">👮</div>
+      <div class="contact-info">
+        <div class="contact-name">Police Helpline</div>
+        <div class="contact-number">100</div>
+      </div>
+      <a href="tel:100" class="call-btn">📞 Call</a>
+    </div>
+
+    <div class="contact-card fade-up-3">
+      <div class="contact-icon icon-purple">👩</div>
+      <div class="contact-info">
+        <div class="contact-name">Women Helpline</div>
+        <div class="contact-number">1091</div>
+      </div>
+      <a href="tel:1091" class="call-btn">📞 Call</a>
+    </div>
+
+    <div class="contact-card fade-up-3">
+      <div class="contact-icon icon-amber">🔥</div>
+      <div class="contact-info">
+        <div class="contact-name">Fire Brigade</div>
+        <div class="contact-number">101</div>
+      </div>
+      <a href="tel:101" class="call-btn">📞 Call</a>
+    </div>
+
+    <div class="contact-card fade-up-4">
+      <div class="contact-icon icon-green">☎️</div>
+      <div class="contact-info">
+        <div class="contact-name">National Emergency</div>
+        <div class="contact-number">112</div>
+      </div>
+      <a href="tel:112" class="call-btn">📞 Call</a>
+    </div>
+
+    <p class="bottom-note fade-up-4">
+      These are government emergency numbers valid across India.<br>
+      For non-emergency queries, use the Lifeline app support.
+    </p>
+  </div>
+
+  <script src="/shared/toast.js"></script>
+</body>
+</html>

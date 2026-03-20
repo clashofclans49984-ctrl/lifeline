@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lifeline Web App Reconstruction Prompts</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px;
+        }
+        h1 {
+            color: #4ecca3;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #a0a0a0;
+            margin-bottom: 40px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .prompt-card {
+            background-color: #16213e;
+            border-left: 5px solid #4ecca3;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        .prompt-card:hover {
+            transform: translateX(5px);
+        }
+        .prompt-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .step-number {
+            background-color: #4ecca3;
+            color: #1a1a2e;
+            font-weight: bold;
+            font-size: 1.2rem;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: #ffffff;
+        }
+        .prompt-text {
+            background-color: #0f172a;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+            border: 1px solid #2a3b5c;
+            color: #dcdcaa;
+        }
+        .copy-btn {
+            background-color: #4ecca3;
+            color: #1a1a2e;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+            float: right;
+            transition: background-color 0.2s;
+        }
+        .copy-btn:hover {
+            background-color: #45b393;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+    <!-- 
+    ========================================================
+    LIFELINE WEB APP RECONSTRUCTION: 15 SEQUENTIAL PROMPTS
+    ========================================================
+    
+    Prompt 1: Initialize Git & Project Structure
+    We are building an Uber/Ola-style ambulance ride-booking web application called 'Lifeline'. The tech stack is a Node.js/Express backend, and a pure HTML/CSS/JS frontend (no React). Please create the root project folder named 'Lifeline Website'. Inside it, create a 'ride-app' directory containing two subdirectories: 'client' and 'server'. Initialize a git repository in the root directory. Create a comprehensive .gitignore file in the root to ignore node_modules and .env files. Finally, create a basic README.md explaining the project structure. Once done, run 'git add .' and 'git commit -m "Part 1: Initialize Git and basic project folders"' to log this step.
+
+    Prompt 2: Server Setup & Dependencies
+    Navigate to the 'ride-app/server' directory and initialize a new Node.js project. We need to install the following dependencies: express, socket.io, mongoose, firebase-admin, jsonwebtoken, bcryptjs, cors, dotenv, and node-fetch. Also install nodemon as a dev dependency. Update the package.json to include 'start' and 'dev' scripts pointing to 'index.js'. Once done, run 'git add .' and 'git commit -m "Part 2: Initialize Node.js server and install dependencies"'.
+
+    Prompt 3: Basic Express Server (index.js)
+    In the 'ride-app/server' directory, create a basic 'index.js' file. Set up an Express application, require dotenv, configure CORS, and set up basic JSON parsing middleware. Load environment variables. Start the HTTP server on a port (e.g., process.env.PORT or 5000) and add a simple root GET route '/' that returns { message: 'Lifeline API is running' }. Once done, run 'git add .' and 'git commit -m "Part 3: Create base Express server config"'.
+
+    Prompt 4: Database Models Setup
+    Inside 'ride-app/server', create a 'models' directory. Create Mongoose schemas for the application entities: User, Driver, Ride/Booking, Hospital, and Contact. They should securely store passwords (if not using Firebase entirely) and hold location data in GeoJSON or simple lat/lng format. Include necessary fields like names, phone numbers, and statuses. Once done, run 'git add .' and 'git commit -m "Part 4: Create Mongoose data models for User, Driver, Ride, Hospital, Contact"'.
+
+    Prompt 5: Authentication Middleware & Configuration
+    Inside 'ride-app/server', create a 'middleware' directory. Create an 'authMiddleware.js' file to verify JSON Web Tokens (JWT) for protected routes. Also, if there's any file needed for Firebase Admin initialization (for OTP generation/verification), set it up here or in a config file. Ensure error handling for unauthenticated requests. Once done, run 'git add .' and 'git commit -m "Part 5: Implement Authentication JWT and Firebase middleware"'.
+
+    Prompt 6: Authentication API Routes (Auth)
+    Inside 'ride-app/server', create a 'routes' directory. Implement authentication routes (e.g., 'authRoutes.js') that handle Signup, Login, and OTP generation/verification for both Users and Drivers. Connect these routes with the previously created Mongoose models to register and authenticate users. Import and mount these routes in 'index.js'. Once done, run 'git add .' and 'git commit -m "Part 6: Implement Auth API endpoints for users and drivers"'.
+
+    Prompt 7: Main Application API Routes
+    In the 'server/routes' directory, create endpoints for the core functionality: a 'rideRoutes.js' for users to request ambulances and drivers to accept/complete them, a 'hospitalRoutes.js' to fetch nearby hospitals, and a 'contactRoutes.js' to manage emergency contacts. Connect these to 'index.js' and protect them using 'authMiddleware.js'. Once done, run 'git add .' and 'git commit -m "Part 7: Implement API endpoints for rides, hospitals, and contacts"'.
+
+    Prompt 8: Real-time Socket.IO Setup
+    Inside 'ride-app/server', create a 'sockets' directory. Inside 'sockets/index.js', configure Socket.IO using the existing HTTP server created in 'server/index.js'. Set up socket events to handle real-time location tracking: driver location updates, passenger ride requests, driver acceptance, and live trip tracking. Connect the sockets module to 'index.js'. Once done, run 'git add .' and 'git commit -m "Part 8: Integrate Socket.IO for real-time location mapping and ride updates"'.
+
+    Prompt 9: Client Foundation & Authentication Pages
+    Now focus on the 'ride-app/client' directory. We will use plain HTML/CSS/JS. Create a 'shared' directory for shared styles, assets, and utility JS functions. Create the 'index.html' (Landing Page), 'signup.html' (Registration UI), and 'otp.html' (OTP Verification UI). Link them to basic CSS. Ensure they have the necessary forms and IDs for frontend JS logic. Once done, run 'git add .' and 'git commit -m "Part 9: Build static HTML/CSS foundation for landing, signup, and OTP pages"'.
+
+    Prompt 10: Frontend Authentication Logic
+    In the 'ride-app/client' directory, write the JavaScript to handle the forms in 'signup.html', 'index.html' (for login), and 'otp.html'. Implement fetch API calls pointing to the backend Auth routes. On successful login/OTP verification, save the JWT token to 'localStorage' and redirect the user to 'dashboard.html'. Once done, run 'git add .' and 'git commit -m "Part 10: Implement frontend JS for authentication and token management"'.
+
+    Prompt 11: User Dashboard and Emergency Features
+    In 'ride-app/client', create 'dashboard.html'. This page should contain buttons for 'Call Ambulance', 'Locate Nearby Hospitals', etc. Write the accompanying JS to fetch user data from the protected API endpoints (sending JWT in headers). Create UI components inside the 'user' folder for the main interface. Once done, run 'git add .' and 'git commit -m "Part 11: Build User Dashboard UI and connect to backend API"'.
+
+    Prompt 12: Hospitals and Contacts Implementation
+    In 'ride-app/client', create 'hospitals.html' and 'contacts.html'. Implement functionality to display a list of emergency contacts and nearby hospitals by making GET requests to our Node.js server. Present this data in a clean, modern UI grid or list. Add functionality to add new emergency contacts if required. Once done, run 'git add .' and 'git commit -m "Part 12: Implement UI and logic for Hospitals and Contacts features"'.
+
+    Prompt 13: Driver Interface
+    In 'ride-app/client', create a 'driver' directory containing a 'driver-dashboard.html' (or equivalent driver UI). This interface must listen for incoming ride/ambulance requests via Socket.IO, allow the driver to accept/reject rides, and continuously push the driver's GPS location via Web Geolocation API over websocket. Connect this UI to the driver API routes. Once done, run 'git add .' and 'git commit -m "Part 13: Build Driver UI with Socket.IO location broadcasting and ride acceptance"'.
+
+    Prompt 14: Real-time Patient Tracking Interface
+    In 'ride-app/client', create 'track.html'. In this page, integrate a map (e.g., Leaflet.js with OSM tiles). Connect as a user to Socket.IO to listen for the driver's location updates. Render a marker on the map that moves in real-time as the driver approaches. Display ETA and ride status updates. Once done, run 'git add .' and 'git commit -m "Part 14: Implement real-time map tracking UI using Socket.IO and Leaflet"'.
+
+    Prompt 15: Final Review, Testing & Bug Fixes
+    Review the entire codebase. Create a 'test' directory inside 'client' or 'server' with some basic API testing scripts or Postman collections. Provide a '.env.example' in the server directory with placeholder keys. Apply final CSS polish to ensure the app is fully responsive and looks like a premium Uber-style product. Fix any remaining CORS or connection issues between client and server. Once done, run 'git add .' and 'git commit -m "Part 15: Final polish, bug fixes, and project finalization"'.
+    -->
+    <div class="container">
+        <h1>Lifeline Web App Reconstruction</h1>
+        <p class="subtitle">15 Sequential Prompts to Re-develop the Entire Project</p>
+
+        <!-- Script for copy button -->
+        <script>
+            function copyPrompt(button, promptId) {
+                const promptText = document.getElementById(promptId).innerText;
+                navigator.clipboard.writeText(promptText).then(() => {
+                    const originalText = button.innerText;
+                    button.innerText = "Copied!";
+                    setTimeout(() => {
+                        button.innerText = originalText;
+                    }, 2000);
+                });
+            }
+        </script>
+        
+        <!-- Generate 15 Prompts -->
+        <script>
+            const prompts = [
+                {
+                    title: "Initialize Git & Project Structure",
+                    text: "We are building an Uber/Ola-style ambulance ride-booking web application called 'Lifeline'. The tech stack is a Node.js/Express backend, and a pure HTML/CSS/JS frontend (no React). Please create the root project folder named 'Lifeline Website'. Inside it, create a 'ride-app' directory containing two subdirectories: 'client' and 'server'. Initialize a git repository in the root directory. Create a comprehensive .gitignore file in the root to ignore node_modules and .env files. Finally, create a basic README.md explaining the project structure. Once done, run 'git add .' and 'git commit -m \"Part 1: Initialize Git and basic project folders\"' to log this step."
+                },
+                {
+                    title: "Server Setup & Dependencies",
+                    text: "Navigate to the 'ride-app/server' directory and initialize a new Node.js project. We need to install the following dependencies: express, socket.io, mongoose, firebase-admin, jsonwebtoken, bcryptjs, cors, dotenv, and node-fetch. Also install nodemon as a dev dependency. Update the package.json to include 'start' and 'dev' scripts pointing to 'index.js'. Once done, run 'git add .' and 'git commit -m \"Part 2: Initialize Node.js server and install dependencies\"'."
+                },
+                {
+                    title: "Basic Express Server (index.js)",
+                    text: "In the 'ride-app/server' directory, create a basic 'index.js' file. Set up an Express application, require dotenv, configure CORS, and set up basic JSON parsing middleware. Load environment variables. Start the HTTP server on a port (e.g., process.env.PORT or 5000) and add a simple root GET route '/' that returns { message: 'Lifeline API is running' }. Once done, run 'git add .' and 'git commit -m \"Part 3: Create base Express server config\"'."
+                },
+                {
+                    title: "Database Models Setup",
+                    text: "Inside 'ride-app/server', create a 'models' directory. Create Mongoose schemas for the application entities: User, Driver, Ride/Booking, Hospital, and Contact. They should securely store passwords (if not using Firebase entirely) and hold location data in GeoJSON or simple lat/lng format. Include necessary fields like names, phone numbers, and statuses. Once done, run 'git add .' and 'git commit -m \"Part 4: Create Mongoose data models for User, Driver, Ride, Hospital, Contact\"'."
+                },
+                {
+                    title: "Authentication Middleware & Configuration",
+                    text: "Inside 'ride-app/server', create a 'middleware' directory. Create an 'authMiddleware.js' file to verify JSON Web Tokens (JWT) for protected routes. Also, if there's any file needed for Firebase Admin initialization (for OTP generation/verification), set it up here or in a config file. Ensure error handling for unauthenticated requests. Once done, run 'git add .' and 'git commit -m \"Part 5: Implement Authentication JWT and Firebase middleware\"'."
+                },
+                {
+                    title: "Authentication API Routes (Auth)",
+                    text: "Inside 'ride-app/server', create a 'routes' directory. Implement authentication routes (e.g., 'authRoutes.js') that handle Signup, Login, and OTP generation/verification for both Users and Drivers. Connect these routes with the previously created Mongoose models to register and authenticate users. Import and mount these routes in 'index.js'. Once done, run 'git add .' and 'git commit -m \"Part 6: Implement Auth API endpoints for users and drivers\"'."
+                },
+                {
+                    title: "Main Application API Routes",
+                    text: "In the 'server/routes' directory, create endpoints for the core functionality: a 'rideRoutes.js' for users to request ambulances and drivers to accept/complete them, a 'hospitalRoutes.js' to fetch nearby hospitals, and a 'contactRoutes.js' to manage emergency contacts. Connect these to 'index.js' and protect them using 'authMiddleware.js'. Once done, run 'git add .' and 'git commit -m \"Part 7: Implement API endpoints for rides, hospitals, and contacts\"'."
+                },
+                {
+                    title: "Real-time Socket.IO Setup",
+                    text: "Inside 'ride-app/server', create a 'sockets' directory. Inside 'sockets/index.js', configure Socket.IO using the existing HTTP server created in 'server/index.js'. Set up socket events to handle real-time location tracking: driver location updates, passenger ride requests, driver acceptance, and live trip tracking. Connect the sockets module to 'index.js'. Once done, run 'git add .' and 'git commit -m \"Part 8: Integrate Socket.IO for real-time location mapping and ride updates\"'."
+                },
+                {
+                    title: "Client Foundation & Authentication Pages",
+                    text: "Now focus on the 'ride-app/client' directory. We will use plain HTML/CSS/JS. Create a 'shared' directory for shared styles, assets, and utility JS functions. Create the 'index.html' (Landing Page), 'signup.html' (Registration UI), and 'otp.html' (OTP Verification UI). Link them to basic CSS. Ensure they have the necessary forms and IDs for frontend JS logic. Once done, run 'git add .' and 'git commit -m \"Part 9: Build static HTML/CSS foundation for landing, signup, and OTP pages\"'."
+                },
+                {
+                    title: "Frontend Authentication Logic",
+                    text: "In the 'ride-app/client' directory, write the JavaScript to handle the forms in 'signup.html', 'index.html' (for login), and 'otp.html'. Implement fetch API calls pointing to the backend Auth routes. On successful login/OTP verification, save the JWT token to 'localStorage' and redirect the user to 'dashboard.html'. Once done, run 'git add .' and 'git commit -m \"Part 10: Implement frontend JS for authentication and token management\"'."
+                },
+                {
+                    title: "User Dashboard and Emergency Features",
+                    text: "In 'ride-app/client', create 'dashboard.html'. This page should contain buttons for 'Call Ambulance', 'Locate Nearby Hospitals', etc. Write the accompanying JS to fetch user data from the protected API endpoints (sending JWT in headers). Create UI components inside the 'user' folder for the main interface. Once done, run 'git add .' and 'git commit -m \"Part 11: Build User Dashboard UI and connect to backend API\"'."
+                },
+                {
+                    title: "Hospitals and Contacts Implementation",
+                    text: "In 'ride-app/client', create 'hospitals.html' and 'contacts.html'. Implement functionality to display a list of emergency contacts and nearby hospitals by making GET requests to our Node.js server. Present this data in a clean, modern UI grid or list. Add functionality to add new emergency contacts if required. Once done, run 'git add .' and 'git commit -m \"Part 12: Implement UI and logic for Hospitals and Contacts features\"'."
+                },
+                {
+                    title: "Driver Interface",
+                    text: "In 'ride-app/client', create a 'driver' directory containing a 'driver-dashboard.html' (or equivalent driver UI). This interface must listen for incoming ride/ambulance requests via Socket.IO, allow the driver to accept/reject rides, and continuously push the driver's GPS location via Web Geolocation API over websocket. Connect this UI to the driver API routes. Once done, run 'git add .' and 'git commit -m \"Part 13: Build Driver UI with Socket.IO location broadcasting and ride acceptance\"'."
+                },
+                {
+                    title: "Real-time Patient Tracking Interface",
+                    text: "In 'ride-app/client', create 'track.html'. In this page, integrate a map (e.g., Leaflet.js with OSM tiles). Connect as a user to Socket.IO to listen for the driver's location updates. Render a marker on the map that moves in real-time as the driver approaches. Display ETA and ride status updates. Once done, run 'git add .' and 'git commit -m \"Part 14: Implement real-time map tracking UI using Socket.IO and Leaflet\"'."
+                },
+                {
+                    title: "Final Review, Testing & Bug Fixes",
+                    text: "Review the entire codebase. Create a 'test' directory inside 'client' or 'server' with some basic API testing scripts or Postman collections. Provide a '.env.example' in the server directory with placeholder keys. Apply final CSS polish to ensure the app is fully responsive and looks like a premium Uber-style product. Fix any remaining CORS or connection issues between client and server. Once done, run 'git add .' and 'git commit -m \"Part 15: Final polish, bug fixes, and project finalization\"'."
+                }
+            ];
+
+            const container = document.querySelector('.container');
+            prompts.forEach((p, index) => {
+                const promptId = 'prompt-' + index;
+                const html = `
+                    <div class="prompt-card clearfix">
+                        <div class="prompt-header">
+                            <div class="step-number">${index + 1}</div>
+                            <h2>${p.title}</h2>
+                        </div>
+                        <div class="prompt-text" id="${promptId}">${p.text}</div>
+                        <button class="copy-btn" onclick="copyPrompt(this, '${promptId}')">Copy Prompt</button>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        </script>
+    </div>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Lifeline driver login portal">
+  <title>Lifeline — Driver Login</title>
+  <link rel="stylesheet" href="/shared/style.css">
+  <style>
+    body { background: #ffffff; min-height: 100vh; }
+    .login-container {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .login-header {
+      text-align: center;
+      margin-top: 48px;
+      margin-bottom: 32px;
+    }
+    .login-heading {
+      font-size: 26px;
+      font-weight: 700;
+      margin-top: 12px;
+    }
+    .login-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      box-shadow: var(--shadow);
+    }
+    .field-label {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .input-wrap {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    .input-wrap input {
+      width: 100%;
+      height: 52px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0 44px 0 14px;
+      font-size: 15px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-wrap input:focus { border-color: var(--green); }
+    .toggle-pwd {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 24px 0;
+    }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-text { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .register-link {
+      text-align: center;
+      font-size: 15px;
+    }
+    .register-link a {
+      color: var(--green);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .register-link a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <a href="/" class="lifeline-logo fade-up">
+      <span class="logo-icon">🚑</span>
+      Life<span class="logo-green">line</span>
+    </a>
+
+    <div class="login-header">
+      <div class="label-red fade-up-1">DRIVER PORTAL</div>
+      <h1 class="login-heading fade-up-2">Welcome back, Driver</h1>
+    </div>
+
+    <div class="login-card fade-up-3">
+      <label class="field-label">Email</label>
+      <div class="input-wrap">
+        <input type="email" id="email-input" placeholder="Enter your email" autocomplete="email">
+      </div>
+
+      <label class="field-label">Password</label>
+      <div class="input-wrap">
+        <input type="password" id="password-input" placeholder="Enter your password" autocomplete="current-password">
+        <button class="toggle-pwd" id="toggle-pwd" type="button">👁</button>
+      </div>
+
+      <button class="btn btn-green btn-full" id="login-btn" type="button">Login</button>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <span class="divider-text">OR</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="register-link">
+        New driver? <a href="/driver/register.html">Register here</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared/toast.js"></script>
+  <script>
+    // Password toggle
+    const pwdInput = document.getElementById('password-input');
+    document.getElementById('toggle-pwd').addEventListener('click', () => {
+      const type = pwdInput.type === 'password' ? 'text' : 'password';
+      pwdInput.type = type;
+    });
+
+    // Login
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      const email = document.getElementById('email-input').value.trim();
+      const password = pwdInput.value;
+
+      if (!email || !password) {
+        showToast('⚠️ Please enter email and password');
+        return;
+      }
+
+      const btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+
+      try {
+        const res = await fetch('/api/auth/driver/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast('❌ ' + (data.error || 'Login failed'));
+          btn.disabled = false;
+          btn.textContent = 'Login';
+          return;
+        }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userId', data.user.id);
+        localStorage.setItem('userName', data.user.name);
+        localStorage.setItem('userRole', 'driver');
+        localStorage.setItem('vehicleNumber', data.user.vehicleNumber || '');
+        localStorage.setItem('driverPhoto', data.user.driverPhoto || '');
+        localStorage.setItem('assistantName', data.user.assistantName || '');
+        localStorage.setItem('assistantPhoto', data.user.assistantPhoto || '');
+        localStorage.setItem('totalRides', data.user.totalRides || 0);
+        localStorage.setItem('rating', data.user.rating || 5.0);
+        showToast('✅ Welcome, ' + data.user.name + '!');
+        window.location.href = '/driver/dashboard.html';
+      } catch (err) {
+        showToast('❌ Network error');
+        btn.disabled = false;
+        btn.textContent = 'Login';
+      }
+    });
+
+    // Enter key
+    document.getElementById('password-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('login-btn').click();
+    });
+
+    // Redirect if already logged in
+    if (localStorage.getItem('token') && localStorage.getItem('userRole') === 'driver') {
+      window.location.href = '/driver/dashboard.html';
+    }
+  </script>
+</body>
+</html>

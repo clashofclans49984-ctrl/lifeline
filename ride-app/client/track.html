@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Track your emergency ambulance in real-time on a live map">
+  <title>Lifeline — Live Tracking</title>
+  <link rel="stylesheet" href="/shared/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body { background: var(--bg); margin: 0; overflow: hidden; }
+    .track-wrap { display: flex; flex-direction: column; height: 100vh; }
+    .header-bar {
+      background: white;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 16px; font-weight: 700; }
+    .header-pills { display: flex; gap: 10px; }
+    #map { flex: 1; z-index: 1; }
+    /* No booking state */
+    .no-booking-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+    .no-booking-card {
+      text-align: center;
+      background: white;
+      border-radius: 20px;
+      padding: 48px 40px;
+      box-shadow: var(--shadow-lg);
+      max-width: 400px;
+    }
+    .no-booking-card .icon { font-size: 64px; margin-bottom: 16px; }
+    .no-booking-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .no-booking-card p { color: var(--muted); margin-bottom: 24px; font-size: 15px; }
+    .no-booking-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    /* Driver bottom panel */
+    .driver-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 24px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,.1);
+      z-index: 500;
+    }
+    .panel-driver-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .panel-photo {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: var(--blue-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .panel-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .panel-info { flex: 1; }
+    .panel-name { font-size: 14px; font-weight: 700; }
+    .panel-detail { font-size: 12px; color: var(--muted); }
+    .panel-divider {
+      border: none;
+      border-top: 1px dashed var(--border);
+      margin: 8px 0;
+    }
+    .cancel-btn {
+      width: 100%;
+      height: 46px;
+      border: 1.5px solid var(--red);
+      color: var(--red);
+      background: transparent;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: all 0.2s;
+    }
+    .cancel-btn:hover {
+      background: var(--red-light);
+    }
+  </style>
+</head>
+<body>
+  <div class="track-wrap">
+    <!-- Navbar -->
+    <nav class="navbar">
+      <a href="/" class="lifeline-logo">
+        <span class="logo-icon">🚑</span>
+        Life<span class="logo-green">line</span>
+      </a>
+      <div class="navbar-actions">
+        <a href="/dashboard.html" class="btn btn-outline">← Dashboard</a>
+      </div>
+    </nav>
+
+    <!-- Content area — either no-booking or map -->
+    <div id="no-booking-view" class="no-booking-wrap" style="display:none;">
+      <div class="no-booking-card">
+        <div class="icon">🚑</div>
+        <h2>No Active Booking</h2>
+        <p>Please request an ambulance first to track its location.</p>
+        <div class="no-booking-btns">
+          <a href="/dashboard.html" class="btn btn-outline" style="padding:12px 24px;">← Back to Dashboard</a>
+          <a href="/dashboard.html" class="btn btn-red" style="padding:12px 24px;border-radius:10px;">Request Ambulance Now</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map view -->
+    <div id="map-view" style="display:none;flex:1;display:flex;flex-direction:column;">
+      <div class="header-bar">
+        <div class="header-title">🚑 Live Ambulance Tracking</div>
+        <div class="header-pills">
+          <span class="pill pill-green" id="eta-pill">⏱ ETA: -- min</span>
+          <span class="pill pill-blue" id="dist-pill">📏 -- km away</span>
+        </div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <!-- Driver Panel (fixed bottom) -->
+    <div class="driver-panel" id="driver-panel" style="display:none;">
+      <div class="panel-driver-row" id="panel-driver"></div>
+      <hr class="panel-divider">
+      <div class="panel-driver-row" id="panel-nurse"></div>
+      <button class="cancel-btn" id="cancel-btn">Cancel Booking</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/shared/toast.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    const bookingActive = localStorage.getItem('bookingActive') === 'true';
+    const bookingId = localStorage.getItem('bookingId');
+
+    if (!bookingActive) {
+      document.getElementById('no-booking-view').style.display = 'flex';
+    } else {
+      document.getElementById('no-booking-view').style.display = 'none';
+      const mapView = document.getElementById('map-view');
+      mapView.style.display = 'flex';
+      initMap();
+    }
+
+    let map, patientMarker, driverMarker, routeLine;
+    const patientLat = parseFloat(localStorage.getItem('patientLat')) || 28.6139;
+    const patientLng = parseFloat(localStorage.getItem('patientLng')) || 77.2090;
+
+    function initMap() {
+      map = L.map('map').setView([patientLat, patientLng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      // Patient marker
+      patientMarker = L.circleMarker([patientLat, patientLng], {
+        radius: 14,
+        color: '#1a4fa0',
+        fillColor: '#2563c0',
+        fillOpacity: 0.9,
+        weight: 3
+      }).addTo(map).bindPopup('📍 Your Location');
+
+      // Load active booking for driver info
+      loadBookingData();
+
+      // Socket
+      const socket = io(window.location.origin);
+      socket.emit('register_patient', { patientId: userId });
+
+      socket.on('driver_moving', (data) => {
+        updateDriverPosition(data.driverLat, data.driverLng, data.routeGeoJSON);
+        document.getElementById('eta-pill').textContent = '⏱ ETA: ' + (data.estimatedMinutes || '--') + ' min';
+        document.getElementById('dist-pill').textContent = '📏 ' + ((data.distanceMetres || 0) / 1000).toFixed(1) + ' km away';
+      });
+
+      socket.on('ride_completed', () => {
+        localStorage.removeItem('bookingActive');
+        localStorage.removeItem('bookingId');
+        showToast('✅ Ambulance has arrived. Help is here.');
+        setTimeout(() => { window.location.href = '/dashboard.html'; }, 2000);
+      });
+
+      socket.on('booking_cancelled', () => {
+        localStorage.removeItem('bookingActive');
+        localStorage.removeItem('bookingId');
+        showToast('❌ Booking cancelled');
+        window.location.href = '/dashboard.html';
+      });
+    }
+
+    async function loadBookingData() {
+      try {
+        const res = await fetch('/api/bookings/active', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.booking && data.booking.driverId) {
+          const d = data.booking.driverId;
+          const driverLat = d.location ? d.location.coordinates[1] : patientLat + 0.01;
+          const driverLng = d.location ? d.location.coordinates[0] : patientLng + 0.01;
+
+          // Place driver marker
+          addDriverMarker(driverLat, driverLng);
+
+          // Draw route
+          if (data.booking.routeGeoJSON) {
+            drawRoute(data.booking.routeGeoJSON);
+          } else {
+            fetchAndDrawRoute(driverLng, driverLat, patientLng, patientLat);
+          }
+
+          // Update pills
+          document.getElementById('eta-pill').textContent = '⏱ ETA: ' + (data.booking.estimatedMinutes || '--') + ' min';
+          document.getElementById('dist-pill').textContent = '📏 ' + ((data.booking.distanceMetres || 0) / 1000).toFixed(1) + ' km away';
+
+          // Driver panel
+          showDriverPanel(d);
+
+          // Fit bounds
+          map.fitBounds([[patientLat, patientLng], [driverLat, driverLng]], { padding: [50, 50] });
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    function addDriverMarker(lat, lng) {
+      const icon = L.divIcon({
+        html: '<div style="font-size:32px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚑</div>',
+        className: '',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+      });
+      driverMarker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('🚑 Ambulance en route');
+    }
+
+    function updateDriverPosition(lat, lng, geoJSON) {
+      if (!driverMarker) {
+        addDriverMarker(lat, lng);
+      } else {
+        driverMarker.setLatLng([lat, lng]);
+      }
+      if (geoJSON) {
+        drawRoute(geoJSON);
+      } else {
+        fetchAndDrawRoute(lng, lat, patientLng, patientLat);
+      }
+      map.fitBounds([[patientLat, patientLng], [lat, lng]], { padding: [50, 50] });
+    }
+
+    function drawRoute(geoJSON) {
+      if (routeLine) map.removeLayer(routeLine);
+      routeLine = L.geoJSON(geoJSON, {
+        style: { color: '#e63946', weight: 6, opacity: 0.85, dashArray: '10 5' }
+      }).addTo(map);
+    }
+
+    async function fetchAndDrawRoute(dLng, dLat, pLng, pLat) {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${dLng},${dLat};${pLng},${pLat}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.routes && data.routes[0]) {
+          drawRoute(data.routes[0].geometry);
+        }
+      } catch (err) {}
+    }
+
+    function showDriverPanel(d) {
+      const panel = document.getElementById('driver-panel');
+      panel.style.display = 'block';
+
+      const driverPhoto = d.driverPhoto ? `<img src="${d.driverPhoto}">` : '👨';
+      document.getElementById('panel-driver').innerHTML = `
+        <div class="panel-photo">${driverPhoto}</div>
+        <div class="panel-info">
+          <div class="panel-name">${d.name || 'Driver'}</div>
+          <div class="panel-detail">Ambulance • ${d.vehicleNumber || ''}</div>
+        </div>
+        <span style="font-size:13px;color:var(--muted)">⭐ ${d.rating || '4.9'}</span>
+      `;
+
+      const nursePhoto = d.assistantPhoto ? `<img src="${d.assistantPhoto}">` : '👩';
+      document.getElementById('panel-nurse').innerHTML = `
+        <div class="panel-photo">${nursePhoto}</div>
+        <div class="panel-info">
+          <div class="panel-name">${d.assistantName || 'Assistant'}</div>
+          <div class="panel-detail">Nursing Assistant</div>
+        </div>
+      `;
+    }
+
+    // Cancel booking
+    document.getElementById('cancel-btn').addEventListener('click', async () => {
+      if (!bookingId) return;
+      try {
+        await fetch('/api/bookings/' + bookingId + '/cancel', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        localStorage.removeItem('bookingActive');
+        localStorage.removeItem('bookingId');
+        showToast('Booking cancelled');
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showToast('❌ Failed to cancel');
+      }
+    });
+  </script>
+</body>
+</html>

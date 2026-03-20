@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Lifeline driver dashboard — accept emergency rides">
+  <title>Lifeline — Driver Dashboard</title>
+  <link rel="stylesheet" href="/shared/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body { background: var(--dark); color: #f1f5f9; margin: 0; }
+    /* Dark navbar */
+    .navbar-dark {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; height: 64px;
+      background: rgba(15,23,42,0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+    .driver-id {
+      font-size: 14px; color: #94a3b8; text-align: center;
+    }
+    .driver-id strong { color: #f1f5f9; }
+    /* Online toggle */
+    .toggle-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 18px; border-radius: 999px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none; font-family: 'DM Sans', sans-serif;
+      transition: all 0.3s;
+    }
+    .toggle-offline {
+      background: rgba(255,255,255,.1); color: #94a3b8;
+    }
+    .toggle-online {
+      background: rgba(74,222,128,.15); color: #4ade80;
+      border: 1px solid rgba(74,222,128,.3);
+    }
+    .toggle-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .toggle-offline .toggle-dot { background: #94a3b8; }
+    .toggle-online .toggle-dot { background: #4ade80; animation: blink 1.5s infinite; }
+    .logout-dark {
+      background: none; border: 1px solid rgba(255,255,255,.15);
+      color: #94a3b8; padding: 6px 14px; border-radius: 8px;
+      font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+      transition: all 0.2s;
+    }
+    .logout-dark:hover { border-color: #ef4444; color: #ef4444; }
+
+    /* Body */
+    .dash-body {
+      max-width: 600px; margin: 0 auto; padding: 20px 24px 80px;
+    }
+    /* Stats row */
+    .stats-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px; padding: 16px; text-align: center;
+    }
+    .stat-label { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 700; color: #f1f5f9; }
+    .stat-green { color: #4ade80; }
+    .stat-gray { color: #94a3b8; }
+
+    /* Driver map */
+    #driver-map {
+      height: 280px; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,.1); margin-bottom: 20px;
+    }
+    /* Request panel */
+    .request-panel {
+      background: white; border-radius: 16px; padding: 20px;
+      border: 3px solid var(--red); color: var(--text);
+      animation: slideIn 0.3s ease;
+      display: none; margin-bottom: 20px;
+    }
+    .request-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .request-title { font-size: 16px; font-weight: 700; color: var(--red); }
+    .countdown-num {
+      font-size: 28px; font-weight: 700; color: var(--red);
+      font-variant-numeric: tabular-nums;
+    }
+    .countdown-bar {
+      height: 6px; background: #fee2e2; border-radius: 999px;
+      overflow: hidden; margin-bottom: 16px;
+    }
+    .countdown-fill {
+      height: 100%; background: var(--red); border-radius: 999px;
+      transition: width 1s linear;
+    }
+    .request-info {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      margin-bottom: 16px;
+    }
+    .request-info-item {
+      font-size: 13px; color: var(--muted);
+    }
+    .request-info-item strong { color: var(--text); display: block; }
+    .request-info-full { grid-column: 1 / -1; }
+    .request-btns {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .accept-btn {
+      height: 52px; background: var(--green); color: white; border: none;
+      border-radius: 10px; font-size: 16px; font-weight: 700;
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+      transition: all 0.2s;
+    }
+    .accept-btn:hover { background: #15803d; }
+    .decline-btn {
+      height: 52px; background: transparent; color: var(--red);
+      border: 2px solid var(--red); border-radius: 10px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+    }
+    .decline-btn:hover { background: #fee2e2; }
+
+    /* Active ride */
+    .active-ride {
+      background: rgba(74,222,128,.08); border-radius: 16px; padding: 20px;
+      border: 1px solid rgba(74,222,128,.3);
+      display: none; margin-bottom: 20px;
+    }
+    .ride-title { font-size: 16px; font-weight: 700; color: #4ade80; margin-bottom: 12px; }
+    .ride-info { font-size: 14px; color: #94a3b8; margin-bottom: 6px; }
+    .ride-info strong { color: #f1f5f9; }
+    .complete-btn {
+      width: 100%; height: 48px; background: var(--green); color: white;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+      margin-top: 12px; transition: all 0.2s;
+    }
+    .complete-btn:hover { background: #15803d; }
+
+    .right-actions { display: flex; align-items: center; gap: 10px; }
+  </style>
+</head>
+<body>
+  <!-- Dark Navbar -->
+  <nav class="navbar-dark">
+    <a href="/" class="lifeline-logo" style="color:white">
+      <span class="logo-icon">🚑</span>
+      Life<span class="logo-green">line</span>
+    </a>
+    <div class="driver-id">
+      <strong id="driver-name-display">Driver</strong><br>
+      <span id="vehicle-display" style="font-size:12px"></span>
+    </div>
+    <div class="right-actions">
+      <button class="toggle-pill toggle-offline" id="toggle-btn">
+        <span class="toggle-dot"></span>
+        <span id="toggle-text">Go Online</span>
+      </button>
+      <button class="logout-dark" id="logout-btn">⏻ Logout</button>
+    </div>
+  </nav>
+
+  <div class="dash-body">
+    <!-- Stats -->
+    <div class="stats-row fade-up">
+      <div class="stat-card">
+        <div class="stat-label">Total Rides</div>
+        <div class="stat-value" id="stat-rides">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Status</div>
+        <div class="stat-value stat-gray" id="stat-status">Offline</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rating</div>
+        <div class="stat-value" id="stat-rating">5.0 ⭐</div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div id="driver-map" class="fade-up-1"></div>
+
+    <!-- Incoming Request Panel -->
+    <div class="request-panel" id="request-panel">
+      <div class="request-header">
+        <div class="request-title">🚨 Emergency Request!</div>
+        <div class="countdown-num" id="countdown-num">45</div>
+      </div>
+      <div class="countdown-bar">
+        <div class="countdown-fill" id="countdown-fill" style="width:100%"></div>
+      </div>
+      <div class="request-info">
+        <div class="request-info-item">
+          <strong id="req-patient">Patient</strong>Patient Name
+        </div>
+        <div class="request-info-item">
+          <strong id="req-distance">-- km away</strong>Distance
+        </div>
+        <div class="request-info-item request-info-full">
+          <strong id="req-address">Fetching location...</strong>Location
+        </div>
+      </div>
+      <div class="request-btns">
+        <button class="accept-btn" id="accept-btn">✓ Accept</button>
+        <button class="decline-btn" id="decline-btn">✕ Decline</button>
+      </div>
+    </div>
+
+    <!-- Active Ride Panel -->
+    <div class="active-ride" id="active-ride">
+      <div class="ride-title">🟢 Active Ride</div>
+      <div class="ride-info"><strong id="ride-patient">Patient</strong></div>
+      <div class="ride-info">Distance: <strong id="ride-distance">--</strong></div>
+      <div class="ride-info">ETA: <strong id="ride-eta">--</strong></div>
+      <button class="complete-btn" id="complete-btn">Mark as Arrived</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/shared/toast.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    const driverId = localStorage.getItem('userId');
+    const driverName = localStorage.getItem('userName') || 'Driver';
+    const vehicleNumber = localStorage.getItem('vehicleNumber') || '';
+
+    if (!token || localStorage.getItem('userRole') !== 'driver') {
+      window.location.href = '/driver/login.html';
+    }
+
+    document.getElementById('driver-name-display').textContent = driverName;
+    document.getElementById('vehicle-display').textContent = vehicleNumber;
+    document.getElementById('stat-rides').textContent = localStorage.getItem('totalRides') || '0';
+    document.getElementById('stat-rating').textContent = (localStorage.getItem('rating') || '5.0') + ' ⭐';
+
+    // ──── Audio Context (Siren) ────────────────────────
+    let audioCtx, sirenInterval, sirenActive = false;
+
+    document.addEventListener('click', () => {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }, { once: true });
+
+    function playAmbulanceSiren() {
+      sirenActive = true;
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      function playTone(freq, dur, startTime) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.25, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + dur);
+      }
+
+      function sirenCycle() {
+        if (!sirenActive) return;
+        const now = audioCtx.currentTime;
+        playTone(700, 0.5, now);
+        playTone(500, 0.5, now + 0.5);
+      }
+
+      sirenCycle();
+      sirenInterval = setInterval(sirenCycle, 1000);
+    }
+
+    function stopSiren() {
+      sirenActive = false;
+      clearInterval(sirenInterval);
+    }
+
+    // ──── Socket ───────────────────────────────────────
+    const socket = io(window.location.origin);
+    socket.emit('register_driver', { driverId });
+
+    // ──── Map ──────────────────────────────────────────
+    let driverMap, driverMapMarker, watchId;
+    let currentLat = 28.6139, currentLng = 77.209;
+    let isOnline = false;
+
+    driverMap = L.map('driver-map').setView([currentLat, currentLng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(driverMap);
+
+    const ambulanceIcon = L.divIcon({
+      html: '<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))">🚑</div>',
+      className: '', iconSize: [32, 32], iconAnchor: [16, 16]
+    });
+    driverMapMarker = L.marker([currentLat, currentLng], { icon: ambulanceIcon }).addTo(driverMap);
+
+    // Try getting initial position
+    navigator.geolocation.getCurrentPosition((pos) => {
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
+      driverMap.setView([currentLat, currentLng], 14);
+      driverMapMarker.setLatLng([currentLat, currentLng]);
+    }, () => {});
+
+    // ──── Online/Offline Toggle ────────────────────────
+    const toggleBtn = document.getElementById('toggle-btn');
+    const toggleText = document.getElementById('toggle-text');
+    const statStatus = document.getElementById('stat-status');
+
+    toggleBtn.addEventListener('click', async () => {
+      if (!isOnline) {
+        // Go Online
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            currentLat = pos.coords.latitude;
+            currentLng = pos.coords.longitude;
+
+            try {
+              await fetch('/api/drivers/toggle-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ isActive: true })
+              });
+            } catch (e) {}
+
+            socket.emit('driver_online', { driverId, lat: currentLat, lng: currentLng });
+
+            // Start watching position
+            watchId = navigator.geolocation.watchPosition((p) => {
+              currentLat = p.coords.latitude;
+              currentLng = p.coords.longitude;
+              driverMapMarker.setLatLng([currentLat, currentLng]);
+              driverMap.panTo([currentLat, currentLng]);
+
+              socket.emit('driver_location_update', {
+                driverId, lat: currentLat, lng: currentLng,
+                bookingId: localStorage.getItem('activeBookingId') || null
+              });
+            }, () => {}, { enableHighAccuracy: true, maximumAge: 5000 });
+
+            isOnline = true;
+            toggleBtn.className = 'toggle-pill toggle-online';
+            toggleText.textContent = 'Online';
+            statStatus.textContent = 'Online';
+            statStatus.className = 'stat-value stat-green';
+            showToast('🟢 You are now online');
+          },
+          () => {
+            showToast('⚠️ Please allow location access to go online');
+          }
+        );
+      } else {
+        // Go Offline
+        try {
+          await fetch('/api/drivers/toggle-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ isActive: false })
+          });
+        } catch (e) {}
+
+        socket.emit('driver_offline', { driverId });
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+
+        isOnline = false;
+        toggleBtn.className = 'toggle-pill toggle-offline';
+        toggleText.textContent = 'Go Online';
+        statStatus.textContent = 'Offline';
+        statStatus.className = 'stat-value stat-gray';
+        showToast('You are now offline');
+      }
+    });
+
+    // ──── Incoming Request ─────────────────────────────
+    let countdownTimer, countdownVal;
+    let currentRequest = null;
+
+    socket.on('new_ambulance_request', (data) => {
+      currentRequest = data;
+      playAmbulanceSiren();
+
+      // Calculate distance
+      const pLat = data.patientLat;
+      const pLng = data.patientLng;
+      const dist = haversine(currentLat, currentLng, pLat, pLng);
+
+      document.getElementById('req-patient').textContent = data.patientName || 'Patient';
+      document.getElementById('req-distance').textContent = dist.toFixed(1) + ' km away';
+      document.getElementById('req-address').textContent = data.patientAddress || 'Location received';
+
+      const panel = document.getElementById('request-panel');
+      panel.style.display = 'block';
+
+      // Countdown
+      countdownVal = 45;
+      document.getElementById('countdown-num').textContent = countdownVal;
+      document.getElementById('countdown-fill').style.width = '100%';
+
+      countdownTimer = setInterval(() => {
+        countdownVal--;
+        document.getElementById('countdown-num').textContent = countdownVal;
+        document.getElementById('countdown-fill').style.width = (countdownVal / 45 * 100) + '%';
+        if (countdownVal <= 0) {
+          clearInterval(countdownTimer);
+          declineRequest();
+        }
+      }, 1000);
+    });
+
+    socket.on('booking_taken', () => {
+      stopSiren();
+      clearInterval(countdownTimer);
+      document.getElementById('request-panel').style.display = 'none';
+      currentRequest = null;
+      showToast('Request taken by another driver');
+    });
+
+    // Accept
+    document.getElementById('accept-btn').addEventListener('click', async () => {
+      if (!currentRequest) return;
+      clearInterval(countdownTimer);
+      stopSiren();
+
+      try {
+        const res = await fetch('/api/bookings/' + currentRequest.bookingId + '/accept', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast('❌ ' + (data.error || 'Already taken'));
+          document.getElementById('request-panel').style.display = 'none';
+          currentRequest = null;
+          return;
+        }
+
+        document.getElementById('request-panel').style.display = 'none';
+        localStorage.setItem('activeBookingId', currentRequest.bookingId);
+
+        // Show active ride
+        showActiveRide(currentRequest);
+        showToast('✅ Request accepted!');
+      } catch (err) {
+        showToast('❌ Failed to accept');
+      }
+    });
+
+    // Decline
+    document.getElementById('decline-btn').addEventListener('click', declineRequest);
+
+    function declineRequest() {
+      stopSiren();
+      clearInterval(countdownTimer);
+      document.getElementById('request-panel').style.display = 'none';
+      currentRequest = null;
+    }
+
+    // Active Ride
+    function showActiveRide(req) {
+      const panel = document.getElementById('active-ride');
+      panel.style.display = 'block';
+      document.getElementById('ride-patient').textContent = req.patientName || 'Patient';
+
+      const dist = haversine(currentLat, currentLng, req.patientLat, req.patientLng);
+      document.getElementById('ride-distance').textContent = dist.toFixed(1) + ' km';
+      document.getElementById('ride-eta').textContent = Math.round(dist * 3) + ' min';
+    }
+
+    // Complete ride
+    document.getElementById('complete-btn').addEventListener('click', async () => {
+      const bookingId = localStorage.getItem('activeBookingId');
+      if (!bookingId) return;
+
+      try {
+        await fetch('/api/bookings/' + bookingId + '/complete', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        const rides = parseInt(localStorage.getItem('totalRides') || '0') + 1;
+        localStorage.setItem('totalRides', rides);
+        document.getElementById('stat-rides').textContent = rides;
+        localStorage.removeItem('activeBookingId');
+        document.getElementById('active-ride').style.display = 'none';
+        showToast('✅ Ride complete!');
+      } catch (err) {
+        showToast('❌ Failed to complete ride');
+      }
+    });
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      if (isOnline) {
+        socket.emit('driver_offline', { driverId });
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+      }
+      localStorage.clear();
+      window.location.href = '/';
+    });
+
+    // Haversine
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // Check active booking on load
+    async function checkActiveBooking() {
+      try {
+        const res = await fetch('/api/bookings/active', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.booking) {
+          localStorage.setItem('activeBookingId', data.booking._id);
+          const pLoc = data.booking.patientLocation;
+          showActiveRide({
+            patientName: data.booking.patientId ? data.booking.patientId.name : 'Patient',
+            patientLat: pLoc.coordinates[1],
+            patientLng: pLoc.coordinates[0]
+          });
+        }
+      } catch (e) {}
+    }
+    checkActiveBooking();
+  </script>
+</body>
+</html>

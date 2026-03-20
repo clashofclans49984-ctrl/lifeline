@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Register as a Lifeline ambulance driver">
+  <title>Lifeline — Driver Registration</title>
+  <link rel="stylesheet" href="/shared/style.css">
+  <style>
+    body { background: var(--bg); }
+    .reg-container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    .reg-heading { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+    .reg-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+    .reg-card {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    .card-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--blue);
+      margin-bottom: 20px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .form-group input {
+      height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0 14px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--blue); }
+    .full-width { grid-column: 1 / -1; }
+    /* Photo upload */
+    .photo-upload {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 16px;
+    }
+    .photo-upload:hover {
+      border-color: var(--blue);
+      background: #f0f6ff;
+    }
+    .photo-upload .upload-icon { font-size: 40px; margin-bottom: 8px; }
+    .photo-upload .upload-text { font-size: 14px; font-weight: 600; color: var(--text); }
+    .photo-upload .upload-hint { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+    .photo-preview {
+      display: none;
+      text-align: center;
+    }
+    .photo-preview img {
+      width: 100px; height: 100px;
+      border-radius: 12px;
+      object-fit: cover;
+      margin: 0 auto;
+      display: block;
+      border: 3px solid white;
+      box-shadow: var(--shadow);
+    }
+    .photo-preview .preview-name {
+      font-size: 13px;
+      color: var(--green);
+      font-weight: 600;
+      margin-top: 8px;
+    }
+    /* Designation badge */
+    .designation-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--blue-light);
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--blue);
+      margin-bottom: 20px;
+    }
+    .submit-btn {
+      width: 100%;
+      height: 52px;
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.2s;
+    }
+    .submit-btn:hover {
+      background: #15803d;
+      transform: translateY(-1px);
+    }
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--blue); }
+
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="lifeline-logo">
+      <span class="logo-icon">🚑</span>
+      Life<span class="logo-green">line</span>
+    </a>
+  </nav>
+
+  <div class="reg-container">
+    <a href="/driver/login.html" class="back-link fade-up">← Back to Login</a>
+    <h1 class="reg-heading fade-up-1">Driver Registration</h1>
+    <p class="reg-sub fade-up-1">Register yourself and your assistant to join Lifeline</p>
+
+    <!-- Driver Details -->
+    <div class="reg-card fade-up-2">
+      <div class="card-label">🚑 Driver Details</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" id="d-name" placeholder="e.g. Rajesh Kumar" required>
+        </div>
+        <div class="form-group">
+          <label>Gmail Address *</label>
+          <input type="email" id="d-email" placeholder="driver@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" id="d-phone" placeholder="+91 9876543210">
+        </div>
+        <div class="form-group">
+          <label>Vehicle Number *</label>
+          <input type="text" id="d-vehicle" placeholder="MH-12-AB-1234" required>
+        </div>
+        <div class="form-group">
+          <label>Ambulance Model</label>
+          <input type="text" id="d-model" placeholder="e.g. Tata Winger">
+        </div>
+        <div class="form-group">
+          <label>License Number</label>
+          <input type="text" id="d-license" placeholder="DL-0420XX0000XX">
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="d-password" placeholder="Min 6 characters" required>
+        </div>
+        <div class="form-group">
+          <label>Confirm Password *</label>
+          <input type="password" id="d-confirm" placeholder="Re-enter password" required>
+        </div>
+      </div>
+
+      <!-- Driver Photo -->
+      <div class="photo-upload" id="driver-photo-area" onclick="document.getElementById('driver-photo-input').click()">
+        <input type="file" id="driver-photo-input" accept="image/*" style="display:none">
+        <div id="driver-photo-default">
+          <div class="upload-icon">📷</div>
+          <div class="upload-text">Click to upload driver photo</div>
+          <div class="upload-hint">JPG, PNG — this photo will appear on patient's screen when ambulance is assigned</div>
+        </div>
+        <div class="photo-preview" id="driver-photo-preview">
+          <img id="driver-photo-img" src="" alt="Driver photo">
+          <div class="preview-name" id="driver-photo-name">✓ Photo ready</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assistant Details -->
+    <div class="reg-card fade-up-3">
+      <div class="card-label">👩‍⚕️ Nursing Assistant Details</div>
+      <div class="designation-badge">🏥 Designation: Nursing Assistant</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Assistant Full Name</label>
+          <input type="text" id="a-name" placeholder="e.g. Priya Sharma">
+        </div>
+        <div class="form-group">
+          <label>Qualification</label>
+          <input type="text" id="a-qual" placeholder="e.g. GNM, BSc Nursing">
+        </div>
+        <div class="form-group">
+          <label>Assistant Phone</label>
+          <input type="tel" id="a-phone" placeholder="+91 9876543210">
+        </div>
+        <div class="form-group">
+          <label>Nursing Certificate No.</label>
+          <input type="text" id="a-cert" placeholder="Certificate number">
+        </div>
+      </div>
+
+      <!-- Assistant Photo -->
+      <div class="photo-upload" id="assist-photo-area" onclick="document.getElementById('assist-photo-input').click()">
+        <input type="file" id="assist-photo-input" accept="image/*" style="display:none">
+        <div id="assist-photo-default">
+          <div class="upload-icon">📷</div>
+          <div class="upload-text">Click to upload assistant photo</div>
+          <div class="upload-hint">This photo will appear on patient's screen alongside your photo when ride is assigned</div>
+        </div>
+        <div class="photo-preview" id="assist-photo-preview">
+          <img id="assist-photo-img" src="" alt="Assistant photo">
+          <div class="preview-name" id="assist-photo-name">✓ Photo ready</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="submit-btn fade-up-4" id="register-btn" type="button">✓ Register & Continue to Dashboard</button>
+  </div>
+
+  <script src="/shared/toast.js"></script>
+  <script>
+    let driverPhotoBase64 = '';
+    let assistPhotoBase64 = '';
+
+    // Photo upload handlers
+    function setupPhotoUpload(inputId, defaultId, previewId, imgId, nameId, setFn) {
+      document.getElementById(inputId).addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const base64 = ev.target.result;
+          setFn(base64);
+          document.getElementById(defaultId).style.display = 'none';
+          const preview = document.getElementById(previewId);
+          preview.style.display = 'block';
+          document.getElementById(imgId).src = base64;
+          document.getElementById(nameId).textContent = file.name + ' — ✓ Photo ready';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    setupPhotoUpload('driver-photo-input', 'driver-photo-default', 'driver-photo-preview', 'driver-photo-img', 'driver-photo-name', (b) => driverPhotoBase64 = b);
+    setupPhotoUpload('assist-photo-input', 'assist-photo-default', 'assist-photo-preview', 'assist-photo-img', 'assist-photo-name', (b) => assistPhotoBase64 = b);
+
+    // Register
+    document.getElementById('register-btn').addEventListener('click', async () => {
+      const name = document.getElementById('d-name').value.trim();
+      const email = document.getElementById('d-email').value.trim();
+      const phone = document.getElementById('d-phone').value.trim();
+      const vehicleNumber = document.getElementById('d-vehicle').value.trim();
+      const vehicleModel = document.getElementById('d-model').value.trim();
+      const licenseNumber = document.getElementById('d-license').value.trim();
+      const password = document.getElementById('d-password').value;
+      const confirm = document.getElementById('d-confirm').value;
+
+      const assistantName = document.getElementById('a-name').value.trim();
+      const assistantQualification = document.getElementById('a-qual').value.trim();
+      const assistantPhone = document.getElementById('a-phone').value.trim();
+      const assistantCertNo = document.getElementById('a-cert').value.trim();
+
+      // Validation
+      if (!name || !email || !vehicleNumber || !password) {
+        showToast('⚠️ Please fill all required fields (*)');
+        return;
+      }
+      if (password.length < 6) {
+        showToast('⚠️ Password must be at least 6 characters');
+        return;
+      }
+      if (password !== confirm) {
+        showToast('⚠️ Passwords do not match');
+        return;
+      }
+      if (!driverPhotoBase64 || !assistPhotoBase64) {
+        showToast('⚠️ Please upload both photos to continue');
+        return;
+      }
+
+      const btn = document.getElementById('register-btn');
+      btn.disabled = true;
+      btn.textContent = 'Registering...';
+
+      try {
+        const res = await fetch('/api/auth/driver/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name, email, password, phone,
+            vehicleNumber, vehicleModel, licenseNumber,
+            driverPhoto: driverPhotoBase64,
+            assistantName, assistantPhone,
+            assistantQualification, assistantCertNo,
+            assistantPhoto: assistPhotoBase64
+          })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showToast('❌ ' + (data.error || 'Registration failed'));
+          btn.disabled = false;
+          btn.textContent = '✓ Register & Continue to Dashboard';
+          return;
+        }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userId', data.driver.id);
+        localStorage.setItem('userName', data.driver.name);
+        localStorage.setItem('userRole', 'driver');
+        localStorage.setItem('vehicleNumber', data.driver.vehicleNumber);
+        showToast('✅ Registration successful!');
+        window.location.href = '/driver/dashboard.html';
+      } catch (err) {
+        showToast('❌ Network error');
+        btn.disabled = false;
+        btn.textContent = '✓ Register & Continue to Dashboard';
+      }
+    });
+  </script>
+</body>
+</html>
