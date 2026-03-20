@@ -4,3 +4,4 @@ node_modules/
 *service-account*.json
 *service-accoount*.json
 ride-app/client/shared/config.js
+ride-app/client/shared/firebase-config.js

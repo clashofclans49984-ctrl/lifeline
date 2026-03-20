@@ -16,7 +16,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAXYv6SnTRcmJaV-z89UeeXg4fjzp_t1_E",
+  apiKey: "YOUR_FIREBASE_API_KEY",
   authDomain: "lifeline-app-8f61e.firebaseapp.com",
   projectId: "lifeline-app-8f61e",
   storageBucket: "lifeline-app-8f61e.firebasestorage.app",
