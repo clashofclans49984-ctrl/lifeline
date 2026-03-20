@@ -6,7 +6,6 @@
   <meta name="description" content="Lifeline driver dashboard — accept emergency rides">
   <title>Lifeline — Driver Dashboard</title>
   <link rel="stylesheet" href="/shared/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     body { background: var(--dark); color: #f1f5f9; margin: 0; }
     /* Dark navbar */
@@ -221,8 +220,8 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxRbjWV8hzAWdaLnqeNbMYirA3vXkHFbs&callback=initDriverMap"></script>
   <script src="/shared/toast.js"></script>
   <script>
     const token = localStorage.getItem('token');
@@ -292,24 +291,27 @@
     let currentLat = 28.6139, currentLng = 77.209;
     let isOnline = false;
 
-    driverMap = L.map('driver-map').setView([currentLat, currentLng], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-    }).addTo(driverMap);
+    window.initDriverMap = function() {
+      driverMap = new google.maps.Map(document.getElementById('driver-map'), {
+        zoom: 14,
+        center: { lat: currentLat, lng: currentLng },
+        disableDefaultUI: true
+      });
 
-    const ambulanceIcon = L.divIcon({
-      html: '<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))">🚑</div>',
-      className: '', iconSize: [32, 32], iconAnchor: [16, 16]
-    });
-    driverMapMarker = L.marker([currentLat, currentLng], { icon: ambulanceIcon }).addTo(driverMap);
+      driverMapMarker = new google.maps.Marker({
+        position: { lat: currentLat, lng: currentLng },
+        map: driverMap,
+        label: { text: '🚑', fontSize: '24px' }
+      });
 
-    // Try getting initial position
-    navigator.geolocation.getCurrentPosition((pos) => {
-      currentLat = pos.coords.latitude;
-      currentLng = pos.coords.longitude;
-      driverMap.setView([currentLat, currentLng], 14);
-      driverMapMarker.setLatLng([currentLat, currentLng]);
-    }, () => {});
+      // Try getting initial position
+      navigator.geolocation.getCurrentPosition((pos) => {
+        currentLat = pos.coords.latitude;
+        currentLng = pos.coords.longitude;
+        driverMap.setCenter({ lat: currentLat, lng: currentLng });
+        driverMapMarker.setPosition({ lat: currentLat, lng: currentLng });
+      }, () => {});
+    };
 
     // ──── Online/Offline Toggle ────────────────────────
     const toggleBtn = document.getElementById('toggle-btn');
@@ -338,8 +340,8 @@
             watchId = navigator.geolocation.watchPosition((p) => {
               currentLat = p.coords.latitude;
               currentLng = p.coords.longitude;
-              driverMapMarker.setLatLng([currentLat, currentLng]);
-              driverMap.panTo([currentLat, currentLng]);
+              if (driverMapMarker) driverMapMarker.setPosition({ lat: currentLat, lng: currentLng });
+              if (driverMap) driverMap.panTo({ lat: currentLat, lng: currentLng });
 
               socket.emit('driver_location_update', {
                 driverId, lat: currentLat, lng: currentLng,

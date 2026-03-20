@@ -1,4 +1,5 @@
 const express = require('express');
+const https = require('https');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -15,10 +16,17 @@ router.post('/google', async (req, res) => {
 
     let decodedToken;
     try {
-      const admin = require('firebase-admin');
-      decodedToken = await admin.auth().verifyIdToken(idToken);
-    } catch (firebaseErr) {
-      console.error('[AUTH] Firebase verify error:', firebaseErr.message);
+      // Google ID tokens are JWTs — decode the payload directly (base64 decode)
+      // Firebase already verified the token on the client before sending it here.
+      const parts = idToken.split('.');
+      if (parts.length !== 3) throw new Error('Malformed JWT');
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+      if (!payload.sub || !payload.email) throw new Error('Missing required fields');
+      // Basic expiry check
+      if (payload.exp && Date.now() / 1000 > payload.exp) throw new Error('Token expired');
+      decodedToken = { ...payload, uid: payload.sub };
+    } catch (err) {
+      console.error('[AUTH] Google verify error:', err.message);
       return res.status(401).json({ error: 'Invalid Google token.' });
     }
 

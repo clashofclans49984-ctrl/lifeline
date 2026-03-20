@@ -6,7 +6,6 @@
   <meta name="description" content="Track your emergency ambulance in real-time on a live map">
   <title>Lifeline — Live Tracking</title>
   <link rel="stylesheet" href="/shared/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     body { background: var(--bg); margin: 0; overflow: hidden; }
     .track-wrap { display: flex; flex-direction: column; height: 100vh; }
@@ -145,7 +144,6 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="/shared/toast.js"></script>
   <script>
@@ -160,27 +158,40 @@
       document.getElementById('no-booking-view').style.display = 'none';
       const mapView = document.getElementById('map-view');
       mapView.style.display = 'flex';
-      initMap();
+      
+      const script = document.createElement('script');
+      script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyDxRbjWV8hzAWdaLnqeNbMYirA3vXkHFbs&callback=initMap";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
     }
 
-    let map, patientMarker, driverMarker, routeLine;
+    let map, patientMarker, driverMarker, directionsService, directionsRenderer;
     const patientLat = parseFloat(localStorage.getItem('patientLat')) || 28.6139;
     const patientLng = parseFloat(localStorage.getItem('patientLng')) || 77.2090;
 
-    function initMap() {
-      map = L.map('map').setView([patientLat, patientLng], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
+    window.initMap = function() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 14,
+        center: { lat: patientLat, lng: patientLng },
+        disableDefaultUI: true,
+        styles: [ { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] } ]
+      });
+
+      directionsService = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true,
+        polylineOptions: { strokeColor: '#e63946', strokeWeight: 6 }
+      });
 
       // Patient marker
-      patientMarker = L.circleMarker([patientLat, patientLng], {
-        radius: 14,
-        color: '#1a4fa0',
-        fillColor: '#2563c0',
-        fillOpacity: 0.9,
-        weight: 3
-      }).addTo(map).bindPopup('📍 Your Location');
+      patientMarker = new google.maps.Marker({
+        position: { lat: patientLat, lng: patientLng },
+        map: map,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#2563c0', fillOpacity: 1, strokeWeight: 2, strokeColor: '#ffffff' },
+        title: 'Your Location'
+      });
 
       // Load active booking for driver info
       loadBookingData();
@@ -190,7 +201,7 @@
       socket.emit('register_patient', { patientId: userId });
 
       socket.on('driver_moving', (data) => {
-        updateDriverPosition(data.driverLat, data.driverLng, data.routeGeoJSON);
+        updateDriverPosition(data.driverLat, data.driverLng);
         document.getElementById('eta-pill').textContent = '⏱ ETA: ' + (data.estimatedMinutes || '--') + ' min';
         document.getElementById('dist-pill').textContent = '📏 ' + ((data.distanceMetres || 0) / 1000).toFixed(1) + ' km away';
       });
@@ -208,7 +219,7 @@
         showToast('❌ Booking cancelled');
         window.location.href = '/dashboard.html';
       });
-    }
+    };
 
     async function loadBookingData() {
       try {
@@ -221,69 +232,45 @@
           const driverLat = d.location ? d.location.coordinates[1] : patientLat + 0.01;
           const driverLng = d.location ? d.location.coordinates[0] : patientLng + 0.01;
 
-          // Place driver marker
           addDriverMarker(driverLat, driverLng);
+          fetchAndDrawRoute(driverLng, driverLat, patientLng, patientLat);
 
-          // Draw route
-          if (data.booking.routeGeoJSON) {
-            drawRoute(data.booking.routeGeoJSON);
-          } else {
-            fetchAndDrawRoute(driverLng, driverLat, patientLng, patientLat);
-          }
-
-          // Update pills
           document.getElementById('eta-pill').textContent = '⏱ ETA: ' + (data.booking.estimatedMinutes || '--') + ' min';
           document.getElementById('dist-pill').textContent = '📏 ' + ((data.booking.distanceMetres || 0) / 1000).toFixed(1) + ' km away';
 
-          // Driver panel
           showDriverPanel(d);
-
-          // Fit bounds
-          map.fitBounds([[patientLat, patientLng], [driverLat, driverLng]], { padding: [50, 50] });
         }
       } catch (err) { console.error(err); }
     }
 
     function addDriverMarker(lat, lng) {
-      const icon = L.divIcon({
-        html: '<div style="font-size:32px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚑</div>',
-        className: '',
-        iconSize: [36, 36],
-        iconAnchor: [18, 18]
+      driverMarker = new google.maps.Marker({
+        position: { lat, lng },
+        map: map,
+        label: { text: '🚑', fontSize: '24px' },
+        title: 'Ambulance en route'
       });
-      driverMarker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('🚑 Ambulance en route');
     }
 
-    function updateDriverPosition(lat, lng, geoJSON) {
+    function updateDriverPosition(lat, lng) {
       if (!driverMarker) {
         addDriverMarker(lat, lng);
       } else {
-        driverMarker.setLatLng([lat, lng]);
+        driverMarker.setPosition({ lat, lng });
       }
-      if (geoJSON) {
-        drawRoute(geoJSON);
-      } else {
-        fetchAndDrawRoute(lng, lat, patientLng, patientLat);
-      }
-      map.fitBounds([[patientLat, patientLng], [lat, lng]], { padding: [50, 50] });
+      fetchAndDrawRoute(lng, lat, patientLng, patientLat);
     }
 
-    function drawRoute(geoJSON) {
-      if (routeLine) map.removeLayer(routeLine);
-      routeLine = L.geoJSON(geoJSON, {
-        style: { color: '#e63946', weight: 6, opacity: 0.85, dashArray: '10 5' }
-      }).addTo(map);
-    }
-
-    async function fetchAndDrawRoute(dLng, dLat, pLng, pLat) {
-      try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${dLng},${dLat};${pLng},${pLat}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.routes && data.routes[0]) {
-          drawRoute(data.routes[0].geometry);
+    function fetchAndDrawRoute(dLng, dLat, pLng, pLat) {
+      directionsService.route({
+        origin: { lat: dLat, lng: dLng },
+        destination: { lat: pLat, lng: pLng },
+        travelMode: google.maps.TravelMode.DRIVING
+      }, (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK) {
+          directionsRenderer.setDirections(result);
         }
-      } catch (err) {}
+      });
     }
 
     function showDriverPanel(d) {

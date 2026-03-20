@@ -136,6 +136,19 @@
     }
     .back-link:hover { color: var(--blue); }
 
+    /* Camera Modal styles */
+    .camera-modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;
+    }
+    .camera-content { background: white; padding: 24px; border-radius: 16px; text-align: center; max-width: 90%; }
+    .camera-video { width: 100%; max-width: 400px; border-radius: 12px; background: black; transform: scaleX(-1); }
+    .camera-actions { margin-top: 20px; display: flex; gap: 12px; justify-content: center; }
+    .btn-secondary { background: var(--muted); color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 600; }
+    .upload-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; position: relative; z-index: 2; }
+    .action-btn { background: var(--blue-light); color: var(--blue); border: 1px solid #bfdbfe; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+    .action-btn:hover { background: var(--blue); color: white; }
+
     @media (max-width: 600px) {
       .form-grid { grid-template-columns: 1fr; }
     }
@@ -193,16 +206,21 @@
       </div>
 
       <!-- Driver Photo -->
-      <div class="photo-upload" id="driver-photo-area" onclick="document.getElementById('driver-photo-input').click()">
+      <div class="photo-upload" id="driver-photo-area">
         <input type="file" id="driver-photo-input" accept="image/*" style="display:none">
         <div id="driver-photo-default">
           <div class="upload-icon">📷</div>
-          <div class="upload-text">Click to upload driver photo</div>
-          <div class="upload-hint">JPG, PNG — this photo will appear on patient's screen when ambulance is assigned</div>
+          <div class="upload-text">Upload Driver Photo</div>
+          <div class="upload-hint">JPG, PNG — this photo will appear on patient's screen</div>
+          <div class="upload-actions">
+            <button type="button" class="action-btn" onclick="document.getElementById('driver-photo-input').click()">📁 Choose File</button>
+            <button type="button" class="action-btn" onclick="openCamera('driver')">📸 Use Camera</button>
+          </div>
         </div>
         <div class="photo-preview" id="driver-photo-preview">
           <img id="driver-photo-img" src="" alt="Driver photo">
           <div class="preview-name" id="driver-photo-name">✓ Photo ready</div>
+          <button type="button" class="action-btn" style="margin-top: 10px;" onclick="resetPhoto('driver')">Retake / Change</button>
         </div>
       </div>
     </div>
@@ -231,16 +249,21 @@
       </div>
 
       <!-- Assistant Photo -->
-      <div class="photo-upload" id="assist-photo-area" onclick="document.getElementById('assist-photo-input').click()">
+      <div class="photo-upload" id="assist-photo-area">
         <input type="file" id="assist-photo-input" accept="image/*" style="display:none">
         <div id="assist-photo-default">
           <div class="upload-icon">📷</div>
-          <div class="upload-text">Click to upload assistant photo</div>
-          <div class="upload-hint">This photo will appear on patient's screen alongside your photo when ride is assigned</div>
+          <div class="upload-text">Upload Assistant Photo</div>
+          <div class="upload-hint">This photo will selectively appear alongside your photo</div>
+          <div class="upload-actions">
+            <button type="button" class="action-btn" onclick="document.getElementById('assist-photo-input').click()">📁 Choose File</button>
+            <button type="button" class="action-btn" onclick="openCamera('assist')">📸 Use Camera</button>
+          </div>
         </div>
         <div class="photo-preview" id="assist-photo-preview">
           <img id="assist-photo-img" src="" alt="Assistant photo">
           <div class="preview-name" id="assist-photo-name">✓ Photo ready</div>
+          <button type="button" class="action-btn" style="margin-top: 10px;" onclick="resetPhoto('assist')">Retake / Change</button>
         </div>
       </div>
     </div>
@@ -248,32 +271,97 @@
     <button class="submit-btn fade-up-4" id="register-btn" type="button">✓ Register & Continue to Dashboard</button>
   </div>
 
+  <!-- Camera Modal -->
+  <div class="camera-modal" id="camera-modal">
+    <div class="camera-content">
+      <h3 style="margin-top: 0; color: var(--text);">Take Photo</h3>
+      <video id="camera-video" class="camera-video" autoplay playsinline></video>
+      <canvas id="camera-canvas" style="display:none;"></canvas>
+      <div class="camera-actions">
+        <button type="button" class="btn-secondary" onclick="closeCamera()">Cancel</button>
+        <button type="button" class="action-btn" onclick="capturePhoto()" style="background:var(--blue); color:white;">📸 Capture</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/shared/toast.js"></script>
   <script>
     let driverPhotoBase64 = '';
     let assistPhotoBase64 = '';
 
+    // Camera handling
+    let currentTarget = '';
+    let stream = null;
+
+    async function openCamera(target) {
+      currentTarget = target;
+      document.getElementById('camera-modal').style.display = 'flex';
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        document.getElementById('camera-video').srcObject = stream;
+      } catch (err) {
+        showToast('❌ Camera access denied');
+        closeCamera();
+      }
+    }
+
+    function closeCamera() {
+      document.getElementById('camera-modal').style.display = 'none';
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+    }
+
+    function capturePhoto() {
+      const video = document.getElementById('camera-video');
+      const canvas = document.getElementById('camera-canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      // Fix mirroring for user facing camera
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL('image/jpeg', 0.8);
+      
+      setPhoto(currentTarget, base64, 'Camera Capture');
+      closeCamera();
+    }
+
+    function setPhoto(target, base64, filename) {
+      if (target === 'driver') driverPhotoBase64 = base64;
+      if (target === 'assist') assistPhotoBase64 = base64;
+      
+      document.getElementById(`${target}-photo-default`).style.display = 'none';
+      const preview = document.getElementById(`${target}-photo-preview`);
+      preview.style.display = 'block';
+      document.getElementById(`${target}-photo-img`).src = base64;
+      document.getElementById(`${target}-photo-name`).textContent = filename + ' — ✓ Photo ready';
+    }
+
+    function resetPhoto(target) {
+      if (target === 'driver') driverPhotoBase64 = '';
+      if (target === 'assist') assistPhotoBase64 = '';
+      document.getElementById(`${target}-photo-default`).style.display = 'block';
+      document.getElementById(`${target}-photo-preview`).style.display = 'none';
+    }
+
     // Photo upload handlers
-    function setupPhotoUpload(inputId, defaultId, previewId, imgId, nameId, setFn) {
+    function setupPhotoUpload(inputId, target) {
       document.getElementById(inputId).addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (ev) => {
-          const base64 = ev.target.result;
-          setFn(base64);
-          document.getElementById(defaultId).style.display = 'none';
-          const preview = document.getElementById(previewId);
-          preview.style.display = 'block';
-          document.getElementById(imgId).src = base64;
-          document.getElementById(nameId).textContent = file.name + ' — ✓ Photo ready';
+          setPhoto(target, ev.target.result, file.name);
         };
         reader.readAsDataURL(file);
       });
     }
 
-    setupPhotoUpload('driver-photo-input', 'driver-photo-default', 'driver-photo-preview', 'driver-photo-img', 'driver-photo-name', (b) => driverPhotoBase64 = b);
-    setupPhotoUpload('assist-photo-input', 'assist-photo-default', 'assist-photo-preview', 'assist-photo-img', 'assist-photo-name', (b) => assistPhotoBase64 = b);
+    setupPhotoUpload('driver-photo-input', 'driver');
+    setupPhotoUpload('assist-photo-input', 'assist');
 
     // Register
     document.getElementById('register-btn').addEventListener('click', async () => {
